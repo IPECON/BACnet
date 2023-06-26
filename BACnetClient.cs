@@ -499,6 +499,8 @@ public class BacnetClient : IDisposable
     public event WhoIsHandler OnWhoIs;
     public delegate void TimeSynchronizeHandler(BacnetClient sender, BacnetAddress adr, DateTime dateTime, bool utc);
     public event TimeSynchronizeHandler OnTimeSynchronize;
+    public delegate void IHaveHandler(BacnetClient sender, BacnetAddress adr, BacnetIHaveData data);
+    public event IHaveHandler OnIHave;
 
     //used by both 'confirmed' and 'unconfirmed' notify
     public delegate void COVNotificationHandler(BacnetClient sender, BacnetAddress adr, byte invokeId, uint subscriberProcessIdentifier, BacnetObjectId initiatingDeviceIdentifier, BacnetObjectId monitoredObjectIdentifier, uint timeRemaining, bool needConfirm, ICollection<BacnetPropertyValue> values, BacnetMaxSegments maxSegments);
@@ -559,6 +561,13 @@ public class BacnetClient : IDisposable
                     OnEventNotify(this, address, 0, eventData, false);
                 else
                     Log.Warn("Couldn't decode unconfirmed Event/Alarm Notification");
+            }
+            else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_HAVE && OnIHave != null)
+            {
+                if (Services.DecodeIHaveBroadcast(buffer, offset, length, out var iHaveData) >= 0)
+                    OnIHave(this, address, iHaveData);
+                else
+                    Log.Warn("Couldn't decode IHave");
             }
             else
             {

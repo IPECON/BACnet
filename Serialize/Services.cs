@@ -75,6 +75,69 @@ public class Services
         ASN1.encode_application_character_string(buffer, objectName);
     }
 
+    public static int DecodeIHaveBroadcast(byte[] buffer, int offset, int apduLen, out BacnetIHaveData? bacnetIHaveData)
+    {
+        bacnetIHaveData = null;
+
+        BacnetObjectId deviceId;
+        BacnetObjectId objectId;
+        string objectName;
+
+        var len = 0;
+        if (apduLen < 2)
+        {
+            return -1;
+        }
+
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out byte tagNumber, out uint value);
+        var tag = (BacnetApplicationTags)tagNumber;
+        if (tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
+        {
+            len += ASN1.decode_object_id(buffer, offset + len, out BacnetObjectTypes type, out uint instance);
+            deviceId = new BacnetObjectId(type, instance);
+        }
+        else
+        {
+            return -1;
+        }
+
+        if (len > apduLen)
+        {
+            return -1;
+        }
+
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out value);
+        tag = (BacnetApplicationTags)tagNumber;
+        if (tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_OBJECT_ID)
+        {
+            len += ASN1.decode_object_id(buffer, offset + len, out BacnetObjectTypes type, out uint instance);
+            objectId = new BacnetObjectId(type, instance);
+        }
+        else
+        {
+            return -1;
+        }
+
+        if (len > apduLen)
+        {
+            return -1;
+        }
+
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out value);
+        tag = (BacnetApplicationTags)tagNumber;
+        if (tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_CHARACTER_STRING)
+        {
+            len += ASN1.decode_character_string(buffer, offset + len, apduLen - (offset + len), value, out objectName);
+        }
+        else
+        {
+            return -1;
+        }
+
+        bacnetIHaveData = new BacnetIHaveData(deviceId, objectId, objectName);
+        return len;
+    }
+
     public static void EncodeWhoHasBroadcast(EncodeBuffer buffer, int lowLimit, int highLimit, BacnetObjectId? objectId, string objectName)
     {
         /* optional limits - must be used as a pair */
