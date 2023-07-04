@@ -1109,7 +1109,7 @@ public class BacnetClient : IDisposable
 
     }
 
-    public void WhoIs(int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null, BacnetAddress source = null)
+    public void WhoIs(int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null)
     {
         if (receiver == null)
         {
@@ -1124,14 +1124,14 @@ public class BacnetClient : IDisposable
         }
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver, source);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver.RoutedDestination ?? receiver, receiver.RoutedSource);
         APDU.EncodeUnconfirmedServiceRequest(b, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_WHO_IS);
         Services.EncodeWhoIsBroadcast(b, lowLimit, highLimit);
 
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, receiver, false, 0);
     }
 
-    public void Iam(uint deviceId, BacnetSegmentations segmentation = BacnetSegmentations.SEGMENTATION_BOTH, BacnetAddress receiver = null, BacnetAddress source = null)
+    public void Iam(uint deviceId, BacnetSegmentations segmentation = BacnetSegmentations.SEGMENTATION_BOTH, BacnetAddress receiver = null)
     {
         if (receiver == null)
         {
@@ -1144,7 +1144,7 @@ public class BacnetClient : IDisposable
         }
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver, source);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver.RoutedDestination ?? receiver, receiver.RoutedSource);
         APDU.EncodeUnconfirmedServiceRequest(b, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_AM);
         Services.EncodeIamBroadcast(b, deviceId, (uint)GetMaxApdu(), segmentation, VendorId);
 
@@ -1212,7 +1212,7 @@ public class BacnetClient : IDisposable
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
 
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeError(b, BacnetPduTypes.PDU_TYPE_REJECT, (BacnetConfirmedServices)reason, invokeId);
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, adr, false, 0);
     }
@@ -1224,7 +1224,7 @@ public class BacnetClient : IDisposable
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
 
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeError(b, BacnetPduTypes.PDU_TYPE_ABORT, (BacnetConfirmedServices)reason, invokeId);
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, adr, false, 0);
     }
@@ -1315,7 +1315,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_ATOMIC_WRITE_FILE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeAtomicWriteFile(buffer, true, objectId, position, 1, new[] { fileBuffer }, new[] { count });
 
@@ -1355,7 +1355,7 @@ public class BacnetClient : IDisposable
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_ATOMIC_READ_FILE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeAtomicReadFile(buffer, true, objectId, position, count);
 
@@ -1436,7 +1436,7 @@ public class BacnetClient : IDisposable
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_RANGE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeReadRange(buffer, objectId, (uint)BacnetPropertyIds.PROP_LOG_BUFFER, ASN1.BACNET_ARRAY_ALL, bacnetReadRangeRequestTypes, idxBegin, readFrom, (int)quantity);
         //send
@@ -1541,7 +1541,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_SUBSCRIBE_COV, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeSubscribeCOV(buffer, subscribeId, objectId, cancel, issueConfirmedNotifications, lifetime);
 
@@ -1640,7 +1640,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_SUBSCRIBE_COV_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeSubscribeProperty(buffer, subscribeId, objectId, cancel, issueConfirmedNotifications, lifetime, monitoredProperty, false, 0f);
 
@@ -1708,7 +1708,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedDestination, address.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeReadProperty(buffer, objectId, (uint)propertyId, arrayIndex);
 
@@ -1787,7 +1787,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeWriteProperty(buffer, objectId, (uint)propertyId, ASN1.BACNET_ARRAY_ALL, _writepriority, valueList);
 
@@ -1805,7 +1805,7 @@ public class BacnetClient : IDisposable
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         //BacnetNpduControls.PriorityNormalMessage 
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
 
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeWritePropertyMultiple(buffer, objectId, valueList);
@@ -1858,7 +1858,7 @@ public class BacnetClient : IDisposable
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         //BacnetNpduControls.PriorityNormalMessage 
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
 
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeWriteObjectMultiple(buffer, valueList);
@@ -1921,7 +1921,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeReadPropertyMultiple(buffer, objectId, propertyIdAndArrayIndex);
 
@@ -1962,7 +1962,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeReadPropertyMultiple(buffer, properties);
 
@@ -2029,7 +2029,7 @@ public class BacnetClient : IDisposable
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), BacnetConfirmedServices.SERVICE_CONFIRMED_CREATE_OBJECT, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeCreateProperty(buffer, objectId, valueList);
 
@@ -2078,7 +2078,7 @@ public class BacnetClient : IDisposable
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         //NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply , adr.RoutedSource);
 
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_DELETE_OBJECT, MaxSegments, Transport.MaxAdpuLength, invokeId);
@@ -2151,7 +2151,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_REMOVE_LIST_ELEMENT, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeAddListElement(buffer, objectId, reference.propertyIdentifier, reference.propertyArrayIndex, valueList);
 
@@ -2169,7 +2169,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_ADD_LIST_ELEMENT, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeAddListElement(buffer, objectId, reference.propertyIdentifier, reference.propertyArrayIndex, valueList);
 
@@ -2223,7 +2223,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, PduConfirmedServiceRequest(), serviceId, MaxSegments, Transport.MaxAdpuLength, invokeId);
 
         ASN1.encode_context_object_id(buffer, 0, objectId.type, objectId.instance);
@@ -2305,7 +2305,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_DEVICE_COMMUNICATION_CONTROL, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeDeviceCommunicationControl(buffer, timeDuration, enableDisable, password);
 
@@ -2368,7 +2368,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
 
         var service = getEvent
             ? BacnetConfirmedServices.SERVICE_CONFIRMED_GET_EVENT_INFORMATION
@@ -2450,7 +2450,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_ACKNOWLEDGE_ALARM, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeAlarmAcknowledge(buffer, 57, objId, (uint)eventState, ackText, evTimeStamp, ackTimeStamp);
 
@@ -2494,7 +2494,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_REINITIALIZE_DEVICE, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeReinitializeDevice(buffer, state, password);
 
@@ -2521,7 +2521,7 @@ public class BacnetClient : IDisposable
         if (invokeId == 0) invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_COV_NOTIFICATION, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeCOVNotifyConfirmed(buffer, subscriberProcessIdentifier, initiatingDeviceIdentifier, monitoredObjectIdentifier, timeRemaining, values);
 
@@ -2546,7 +2546,7 @@ public class BacnetClient : IDisposable
         {
             Log.Debug("Sending Notify (unconfirmed)");
             var buffer = GetEncodeBuffer(Transport.HeaderLength);
-            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
             APDU.EncodeUnconfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_COV_NOTIFICATION);
             Services.EncodeCOVNotifyUnconfirmed(buffer, subscriberProcessIdentifier, initiatingDeviceIdentifier, monitoredObjectIdentifier, timeRemaining, values);
             // Modif F. Chaxel
@@ -2599,7 +2599,7 @@ public class BacnetClient : IDisposable
             invokeId = unchecked(_invokeId++);
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedSource, address.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedDestination, address.RoutedSource);
         APDU.EncodeConfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST, BacnetConfirmedServices.SERVICE_CONFIRMED_LIFE_SAFETY_OPERATION, MaxSegments, Transport.MaxAdpuLength, invokeId);
         Services.EncodeLifeSafetyOperation(buffer, processId, requestingSrc, (uint)operation, objectId);
 
@@ -2692,7 +2692,7 @@ public class BacnetClient : IDisposable
         buffer.Reset(Transport.HeaderLength);
 
         //encode
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
 
         //set segments limits
         buffer.max_offset = buffer.offset + GetMaxApdu();
@@ -2894,7 +2894,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending ErrorResponse for {service}: {errorCode}");
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeError(buffer, BacnetPduTypes.PDU_TYPE_ERROR, service, invokeId);
         Services.EncodeError(buffer, errorClass, errorCode);
         Transport.Send(buffer.buffer, Transport.HeaderLength, buffer.offset - Transport.HeaderLength, adr, false, 0);
@@ -2904,7 +2904,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending SimpleAckResponse for {service}");
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeSimpleAck(buffer, BacnetPduTypes.PDU_TYPE_SIMPLE_ACK, service, invokeId);
         Transport.Send(buffer.buffer, Transport.HeaderLength, buffer.offset - Transport.HeaderLength, adr, false, 0);
     }
@@ -2913,7 +2913,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending SegmentAckResponse");
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedSource, adr.RoutedDestination);
+        NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
         APDU.EncodeSegmentAck(buffer, BacnetPduTypes.PDU_TYPE_SEGMENT_ACK | (negative ? BacnetPduTypes.NEGATIVE_ACK : 0) | (server ? BacnetPduTypes.SERVER : 0), originalInvokeId, sequenceNumber, actualWindowSize);
         Transport.Send(buffer.buffer, Transport.HeaderLength, buffer.offset - Transport.HeaderLength, adr, false, 0);
     }

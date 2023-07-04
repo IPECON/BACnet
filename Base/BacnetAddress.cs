@@ -1,4 +1,6 @@
-﻿namespace System.IO.BACnet;
+﻿using System.Diagnostics.Contracts;
+
+namespace System.IO.BACnet;
 
 public class BacnetAddress : ASN1.IEncode
 {
@@ -192,5 +194,25 @@ public class BacnetAddress : ASN1.IEncode
             hash += $":{RoutedDestination.FullHashString()}";
 
         return hash;
+    }
+
+    /// <summary>
+    /// Swaps RoutedSource/RouterDestination and returns a new BacnetAddress
+    /// Use before sending data to received address in event handlers
+    /// </summary>
+    [Pure]
+    public BacnetAddress SwapDirection()
+    {
+        return SwapDirection(this);
+    }
+
+    [Pure]
+    public static BacnetAddress SwapDirection(BacnetAddress source)
+    {
+        BacnetAddress dest = new BacnetAddress(source.type, source.net, source.adr);
+        dest.RoutedDestination = source.RoutedSource;
+        dest.RoutedSource = source.RoutedDestination;
+        dest.VMac = source.VMac;
+        return dest;
     }
 }
