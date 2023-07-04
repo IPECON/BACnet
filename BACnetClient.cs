@@ -1151,17 +1151,17 @@ public class BacnetClient : IDisposable
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, receiver, false, 0);
     }
 
-    public void WhoHas(BacnetObjectId objId, int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null, BacnetAddress source = null)
+    public void WhoHas(BacnetObjectId objId, int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null)
     {
-        WhoHasCore(objId, null, lowLimit, highLimit, receiver, source);
+        WhoHasCore(objId, null, lowLimit, highLimit, receiver);
     }
 
-    public void WhoHas(string objName, int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null, BacnetAddress source = null)
+    public void WhoHas(string objName, int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null)
     {
-        WhoHasCore(null, objName, lowLimit, highLimit, receiver, source);
+        WhoHasCore(null, objName, lowLimit, highLimit, receiver);
     }
 
-    private void WhoHasCore(BacnetObjectId? objId, string objName, int lowLimit, int highLimit, BacnetAddress receiver, BacnetAddress source)
+    private void WhoHasCore(BacnetObjectId? objId, string objName, int lowLimit, int highLimit, BacnetAddress receiver)
     {
         if (receiver == null)
         {
@@ -1174,7 +1174,7 @@ public class BacnetClient : IDisposable
         }
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver, source);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver.RoutedDestination ?? receiver, receiver.RoutedSource);
         APDU.EncodeUnconfirmedServiceRequest(b, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_WHO_HAS);
         Services.EncodeWhoHasBroadcast(b, lowLimit, highLimit, objId, objName);
 
