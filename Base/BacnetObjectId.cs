@@ -24,6 +24,17 @@ public struct BacnetObjectId : IComparable<BacnetObjectId>
         this.instance = instance;
     }
 
+    public BacnetObjectId(uint type, uint instance)
+    {
+        if (type > (uint)BacnetObjectTypes.OBJECT_PROPRIETARY_MAX)
+        {
+            throw new ArgumentException($"Max. allowed value for {nameof(BacnetObjectTypes)} is {(uint)BacnetObjectTypes.OBJECT_PROPRIETARY_MAX}.", nameof(type));
+        }
+
+        this.type = (BacnetObjectTypes)type;
+        this.instance = instance;
+    }
+
     public override string ToString()
     {
         return $"{Type}:{Instance}";
