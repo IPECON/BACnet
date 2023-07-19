@@ -1288,20 +1288,23 @@ public class BacnetClient : IDisposable
         return GetMaxApdu() - 18;
     }
 
-    public bool WriteFileRequest(BacnetAddress adr, BacnetObjectId objectId, ref int position, int count, byte[] fileBuffer, byte invokeId = 0)
+    public bool WriteFileRequest(BacnetAddress adr, BacnetObjectId objectId, ref int position, int count, byte[] fileBuffer, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginWriteFileRequest(adr, objectId, position, count, fileBuffer, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndWriteFileRequest(result, out position, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1391,20 +1394,23 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool ReadFileRequest(BacnetAddress adr, BacnetObjectId objectId, ref int position, ref uint count, out bool endOfFile, out byte[] fileBuffer, out int fileBufferOffset, byte invokeId = 0)
+    public bool ReadFileRequest(BacnetAddress adr, BacnetObjectId objectId, ref int position, ref uint count, out bool endOfFile, out byte[] fileBuffer, out int fileBufferOffset, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginReadFileRequest(adr, objectId, position, count, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReadFileRequest(result, out count, out position, out endOfFile, out fileBuffer, out fileBufferOffset, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1477,8 +1483,11 @@ public class BacnetClient : IDisposable
         return ReadRangeRequestCore(BacnetReadRangeRequestTypes.RR_BY_POSITION, adr, objectId, idxBegin, DateTime.Now, ref quantity, out range, invokeId);
     }
 
-    private bool ReadRangeRequestCore(BacnetReadRangeRequestTypes requestType, BacnetAddress adr, BacnetObjectId objectId, uint idxBegin, DateTime readFrom, ref uint quantity, out byte[] range, byte invokeId = 0)
+    private bool ReadRangeRequestCore(BacnetReadRangeRequestTypes requestType, BacnetAddress adr, BacnetObjectId objectId, uint idxBegin, DateTime readFrom, ref uint quantity, out byte[] range, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         Func<IAsyncResult> getResult;
         uint quantityCopy = quantity;
         switch (requestType)
@@ -1498,36 +1507,39 @@ public class BacnetClient : IDisposable
         range = null;
         using (var result = getResult() as BacnetAsyncResult)
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReadRangeRequest(result, out range, out quantity, out var ex); // quantity read could be less than demanded
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
         return false;
     }
 
-    public bool SubscribeCOVRequest(BacnetAddress adr, BacnetObjectId objectId, uint subscribeId, bool cancel, bool issueConfirmedNotifications, uint lifetime, byte invokeId = 0)
+    public bool SubscribeCOVRequest(BacnetAddress adr, BacnetObjectId objectId, uint subscribeId, bool cancel, bool issueConfirmedNotifications, uint lifetime, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginSubscribeCOVRequest(adr, objectId, subscribeId, cancel, issueConfirmedNotifications, lifetime, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndSubscribeCOVRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1563,20 +1575,23 @@ public class BacnetClient : IDisposable
     }
 
     // DAL
-    public bool SendConfirmedEventNotificationRequest(BacnetAddress adr, BacnetEventNotificationData eventData, byte invokeId = 0, BacnetAddress source = null)
+    public bool SendConfirmedEventNotificationRequest(BacnetAddress adr, BacnetEventNotificationData eventData, byte invokeId = 0, BacnetAddress source = null, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginSendConfirmedEventNotificationRequest(adr, eventData, true, invokeId, source))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndSendConfirmedEventNotificationRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1613,20 +1628,23 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool SubscribePropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference monitoredProperty, uint subscribeId, bool cancel, bool issueConfirmedNotifications, uint lifetime, byte invokeId = 0)
+    public bool SubscribePropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference monitoredProperty, uint subscribeId, bool cancel, bool issueConfirmedNotifications, uint lifetime, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginSubscribePropertyRequest(adr, objectId, monitoredProperty, subscribeId, cancel, issueConfirmedNotifications, lifetime, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndSubscribePropertyRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1661,20 +1679,23 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool ReadPropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, out IList<BacnetValue> valueList, byte invokeId = 0, uint arrayIndex = ASN1.BACNET_ARRAY_ALL)
+    public bool ReadPropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, out IList<BacnetValue> valueList, byte invokeId = 0, uint arrayIndex = ASN1.BACNET_ARRAY_ALL, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginReadPropertyRequest(adr, objectId, propertyId, true, invokeId, arrayIndex))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReadPropertyRequest(result, out valueList, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1740,40 +1761,46 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool WritePropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, IEnumerable<BacnetValue> valueList, uint arrayIndex = ASN1.BACNET_ARRAY_ALL, byte invokeId = 0)
+    public bool WritePropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, IEnumerable<BacnetValue> valueList, uint arrayIndex = ASN1.BACNET_ARRAY_ALL, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginWritePropertyRequest(adr, objectId, propertyId, valueList, true, arrayIndex, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndWritePropertyRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
         return false;
     }
 
-    public bool WritePropertyMultipleRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, byte invokeId = 0)
+    public bool WritePropertyMultipleRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginWritePropertyMultipleRequest(adr, objectId, valueList, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndWritePropertyRequest(result, out var ex); // Share the same with single write
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1828,20 +1855,23 @@ public class BacnetClient : IDisposable
     }
 
     // By Chritopher Günter : Write multiple properties on multiple objects
-    public bool WritePropertyMultipleRequest(BacnetAddress adr, ICollection<BacnetReadAccessResult> valueList, byte invokeId = 0)
+    public bool WritePropertyMultipleRequest(BacnetAddress adr, ICollection<BacnetReadAccessResult> valueList, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginWritePropertyMultipleRequest(adr, valueList, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndWritePropertyRequest(result, out var ex); // Share the same with single write
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1870,20 +1900,23 @@ public class BacnetClient : IDisposable
         return ret;
     }
 
-    public bool ReadPropertyMultipleRequest(BacnetAddress address, BacnetObjectId objectId, IList<BacnetPropertyReference> propertyIdAndArrayIndex, out IList<BacnetReadAccessResult> values, byte invokeId = 0)
+    public bool ReadPropertyMultipleRequest(BacnetAddress address, BacnetObjectId objectId, IList<BacnetPropertyReference> propertyIdAndArrayIndex, out IList<BacnetReadAccessResult> values, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginReadPropertyMultipleRequest(address, objectId, propertyIdAndArrayIndex, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReadPropertyMultipleRequest(result, out values, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -1933,20 +1966,23 @@ public class BacnetClient : IDisposable
     }
 
     // Another way to read multiple properties on multiples objects, if supported by devices
-    public bool ReadPropertyMultipleRequest(BacnetAddress address, IList<BacnetReadAccessSpecification> properties, out IList<BacnetReadAccessResult> values, byte invokeId = 0)
+    public bool ReadPropertyMultipleRequest(BacnetAddress address, IList<BacnetReadAccessSpecification> properties, out IList<BacnetReadAccessResult> values, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginReadPropertyMultipleRequest(address, properties, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReadPropertyMultipleRequest(result, out values, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2002,20 +2038,23 @@ public class BacnetClient : IDisposable
     }
 
     // By Christopher Günter
-    public bool CreateObjectRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList = null, byte invokeId = 0)
+    public bool CreateObjectRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList = null, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginCreateObjectRequest(adr, objectId, valueList, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndCreateObjectRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2050,20 +2089,23 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool DeleteObjectRequest(BacnetAddress adr, BacnetObjectId objectId, byte invokeId = 0)
+    public bool DeleteObjectRequest(BacnetAddress adr, BacnetObjectId objectId, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginDeleteObjectRequest(adr, objectId, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndDeleteObjectRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2101,21 +2143,24 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool AddListElementRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference reference, IList<BacnetValue> valueList, byte invokeId = 0)
+    public bool AddListElementRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference reference, IList<BacnetValue> valueList, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginAddListElementRequest(adr, objectId, reference, valueList, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
 
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndAddListElementRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2123,20 +2168,23 @@ public class BacnetClient : IDisposable
         return false;
     }
 
-    public bool RemoveListElementRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference reference, IList<BacnetValue> valueList, byte invokeId = 0)
+    public bool RemoveListElementRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyReference reference, IList<BacnetValue> valueList, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginRemoveListElementRequest(adr, objectId, reference, valueList, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndAddListElementRequest(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2194,20 +2242,23 @@ public class BacnetClient : IDisposable
     // Read or Write without APDU Data encoding nor Decoding (just Request type, Object id and Property id)
     // Data is given by the caller starting with the Tag 3 (or maybe another one), and ending with it
     // return buffer start also with the Tag 3
-    public bool RawEncodedDecodedPropertyConfirmedRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, BacnetConfirmedServices serviceId, ref byte[] inOutBuffer, byte invokeId = 0)
+    public bool RawEncodedDecodedPropertyConfirmedRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, BacnetConfirmedServices serviceId, ref byte[] inOutBuffer, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginRawEncodedDecodedPropertyConfirmedRequest(adr, objectId, propertyId, serviceId, inOutBuffer, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndRawEncodedDecodedPropertyConfirmedRequest(result, serviceId, out inOutBuffer, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2280,18 +2331,21 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    public bool DeviceCommunicationControlRequest(BacnetAddress adr, uint timeDuration, uint enableDisable, string password, byte invokeId = 0)
+    public bool DeviceCommunicationControlRequest(BacnetAddress adr, uint timeDuration, uint enableDisable, string password, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginDeviceCommunicationControlRequest(adr, timeDuration, enableDisable, password, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndDeviceCommunicationControlRequest(result, out var ex);
                     return ex == null;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2327,13 +2381,16 @@ public class BacnetClient : IDisposable
     }
 
     // FChaxel
-    public bool GetAlarmSummaryOrEventRequest(BacnetAddress adr, bool getEvent, ref IList<BacnetGetEventInformationData> alarms, byte invokeId = 0)
+    public bool GetAlarmSummaryOrEventRequest(BacnetAddress adr, bool getEvent, ref IList<BacnetGetEventInformationData> alarms, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginGetAlarmSummaryOrEventRequest(adr, getEvent, alarms, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndGetAlarmSummaryOrEventRequest(result, getEvent, ref alarms, out var moreEvent, out var ex);
                     if (ex != null)
@@ -2341,7 +2398,7 @@ public class BacnetClient : IDisposable
                     return !moreEvent || GetAlarmSummaryOrEventRequest(adr, getEvent, ref alarms);
                 }
 
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2425,18 +2482,21 @@ public class BacnetClient : IDisposable
     }
 
     // FChaxel
-    public bool AlarmAcknowledgement(BacnetAddress adr, BacnetObjectId objId, BacnetEventStates eventState, string ackText, BacnetGenericTime evTimeStamp, BacnetGenericTime ackTimeStamp, byte invokeId = 0, uint ackProcessIdentifier = 57)
+    public bool AlarmAcknowledgement(BacnetAddress adr, BacnetObjectId objId, BacnetEventStates eventState, string ackText, BacnetGenericTime evTimeStamp, BacnetGenericTime ackTimeStamp, byte invokeId = 0, uint ackProcessIdentifier = 57, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginAlarmAcknowledgement(adr, objId, eventState, ackText, evTimeStamp, ackTimeStamp, true, invokeId, ackProcessIdentifier))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndAlarmAcknowledgement(result, out var ex);
                     return ex == null;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2469,18 +2529,21 @@ public class BacnetClient : IDisposable
             ex = new Exception("Wait Timeout");
     }
 
-    public bool ReinitializeRequest(BacnetAddress adr, BacnetReinitializedStates state, string password, byte invokeId = 0)
+    public bool ReinitializeRequest(BacnetAddress adr, BacnetReinitializedStates state, string password, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginReinitializeRequest(adr, state, password, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndReinitializeRequest(result, out var ex);
                     return ex == null;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2540,7 +2603,7 @@ public class BacnetClient : IDisposable
             ex = new Exception("Wait Timeout");
     }
 
-    public bool Notify(BacnetAddress adr, uint subscriberProcessIdentifier, uint initiatingDeviceIdentifier, BacnetObjectId monitoredObjectIdentifier, uint timeRemaining, bool issueConfirmedNotifications, IList<BacnetPropertyValue> values)
+    public bool Notify(BacnetAddress adr, uint subscriberProcessIdentifier, uint initiatingDeviceIdentifier, BacnetObjectId monitoredObjectIdentifier, uint timeRemaining, bool issueConfirmedNotifications, IList<BacnetPropertyValue> values, int? maxRetries = null, int? timeout = null)
     {
         if (!issueConfirmedNotifications)
         {
@@ -2555,18 +2618,21 @@ public class BacnetClient : IDisposable
             return sendbytes == buffer.offset;
         }
 
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginConfirmedNotify(adr, subscriberProcessIdentifier, initiatingDeviceIdentifier, monitoredObjectIdentifier, timeRemaining, values, true))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndConfirmedNotify(result, out var ex);
                     if (ex != null)
                         throw ex;
                     return true;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2574,18 +2640,21 @@ public class BacnetClient : IDisposable
         return false;
     }
 
-    public bool LifeSafetyOperationRequest(BacnetAddress address, BacnetObjectId objectId, string requestingSrc, BacnetLifeSafetyOperations operation, byte invokeId = 0)
+    public bool LifeSafetyOperationRequest(BacnetAddress address, BacnetObjectId objectId, string requestingSrc, BacnetLifeSafetyOperations operation, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
+        maxRetries ??= Retries;
+        timeout ??= Timeout;
+
         using (var result = (BacnetAsyncResult)BeginLifeSafetyOperationRequest(address, objectId, 0, requestingSrc, operation, true, invokeId))
         {
-            for (var r = 0; r < _retries; r++)
+            for (var r = 0; r < maxRetries; r++)
             {
-                if (result.WaitForDone(Timeout))
+                if (result.WaitForDone(timeout.Value))
                 {
                     EndLifeSafetyOperationRequest(result, out var ex);
                     return ex == null;
                 }
-                if (r < Retries - 1)
+                if (r < maxRetries - 1)
                     result.Resend();
             }
         }
@@ -2770,17 +2839,17 @@ public class BacnetClient : IDisposable
                 }
                 else
                 {
-                        // a negative segmentACK perhaps
-                        var currentNumber = segmentation.sequence_number;
+                    // a negative segmentACK perhaps
+                    var currentNumber = segmentation.sequence_number;
                     WaitForSegmentAck(adr, invokeId, segmentation, 0); // don't wait
 
-                        if (segmentation.sequence_number != currentNumber)
+                    if (segmentation.sequence_number != currentNumber)
                         Log.Debug("Oh, a retransmit");
                 }
 
                 if (moreFollows)
-                        // lock (m_lockObject) transmit(segmentation);
-                        transmit(segmentation);
+                    // lock (m_lockObject) transmit(segmentation);
+                    transmit(segmentation);
                 else
                     break;
             }
@@ -2823,7 +2892,7 @@ public class BacnetClient : IDisposable
             }
 
             //increment before ack can do so (race condition)
-            unchecked { segmentation.sequence_number++; };
+            unchecked { segmentation.sequence_number++; }
         }
 
         //send
