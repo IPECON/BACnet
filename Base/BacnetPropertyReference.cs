@@ -11,6 +11,12 @@ public struct BacnetPropertyReference
         propertyArrayIndex = arrayIndex;
     }
 
+    public BacnetPropertyReference(BacnetPropertyIds id, uint arrayIndex)
+    {
+        propertyIdentifier = (uint)id;
+        propertyArrayIndex = arrayIndex;
+    }
+
     public BacnetPropertyIds GetPropertyId()
     {
         return (BacnetPropertyIds)propertyIdentifier;
