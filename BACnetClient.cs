@@ -33,7 +33,7 @@ public delegate void MessageRecievedHandler(IBacnetTransport sender, byte[] buff
 public class BacnetClient : IDisposable
 {
     private int _retries;
-    private byte _invokeId;
+    private readonly InvokeIdGenerator _invokeId = new();
 
     private readonly LastSegmentAck _lastSegmentAck = new();
     private uint _writepriority;
@@ -1315,7 +1315,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending AtomicWriteFileRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -1354,7 +1354,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending AtomicReadFileRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
@@ -1438,7 +1438,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending ReadRangeRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
@@ -1550,7 +1550,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending SubscribeCOVRequest {objectId}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -1603,7 +1603,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending Confirmed Event Notification {eventData.eventType} {eventData.eventObjectIdentifier}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr, source);
@@ -1655,7 +1655,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending SubscribePropertyRequest {objectId}.{monitoredProperty}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -1726,7 +1726,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending ReadPropertyRequest {objectId} {propertyId}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedDestination, address.RoutedSource);
@@ -1811,7 +1811,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending WritePropertyRequest {objectId} {propertyId}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -1828,7 +1828,7 @@ public class BacnetClient : IDisposable
     public IAsyncResult BeginWritePropertyMultipleRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug($"Sending WritePropertyMultipleRequest {objectId}");
-        if (invokeId == 0) invokeId = unchecked(_invokeId++);
+        if (invokeId == 0) invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         //BacnetNpduControls.PriorityNormalMessage 
@@ -1884,7 +1884,7 @@ public class BacnetClient : IDisposable
         Log.Debug($"Sending WritePropertyMultipleRequest {objectIds}");
 
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         //BacnetNpduControls.PriorityNormalMessage 
@@ -1951,7 +1951,7 @@ public class BacnetClient : IDisposable
         var propertyIds = string.Join(", ", propertyIdAndArrayIndex.Select(v => (BacnetPropertyIds)v.propertyIdentifier));
         Log.Debug($"Sending ReadPropertyMultipleRequest {objectId} {propertyIds}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -1995,7 +1995,7 @@ public class BacnetClient : IDisposable
         var objectIds = string.Join(", ", properties.Select(v => v.objectIdentifier));
         Log.Debug($"Sending ReadPropertyMultipleRequest {objectIds}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2064,7 +2064,7 @@ public class BacnetClient : IDisposable
     public IAsyncResult BeginCreateObjectRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending CreateObjectRequest");
-        if (invokeId == 0) invokeId = unchecked(_invokeId++);
+        if (invokeId == 0) invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
@@ -2116,7 +2116,7 @@ public class BacnetClient : IDisposable
     public IAsyncResult BeginDeleteObjectRequest(BacnetAddress adr, BacnetObjectId objectId, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending DeleteObjectRequest");
-        if (invokeId == 0) invokeId = unchecked(_invokeId++);
+        if (invokeId == 0) invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
@@ -2196,7 +2196,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending RemoveListElementRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2214,7 +2214,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending AddListElementRequest {objectId} {(BacnetPropertyIds)reference.propertyIdentifier}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2271,7 +2271,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending RawEncodedRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2356,7 +2356,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending DeviceCommunicationControlRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2422,7 +2422,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending Alarm summary request");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2507,7 +2507,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending AlarmAcknowledgement");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, adr.RoutedSource);
@@ -2554,7 +2554,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug("Sending ReinitializeRequest");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2581,7 +2581,7 @@ public class BacnetClient : IDisposable
     public IAsyncResult BeginConfirmedNotify(BacnetAddress adr, uint subscriberProcessIdentifier, uint initiatingDeviceIdentifier, BacnetObjectId monitoredObjectIdentifier, uint timeRemaining, IList<BacnetPropertyValue> values, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending Notify (confirmed)");
-        if (invokeId == 0) invokeId = unchecked(_invokeId++);
+        if (invokeId == 0) invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);
@@ -2665,7 +2665,7 @@ public class BacnetClient : IDisposable
     {
         Log.Debug($"Sending {ToTitleCase(operation)} {objectId}");
         if (invokeId == 0)
-            invokeId = unchecked(_invokeId++);
+            invokeId = _invokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, address.RoutedDestination, address.RoutedSource);
