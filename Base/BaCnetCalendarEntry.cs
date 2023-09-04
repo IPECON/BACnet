@@ -24,7 +24,7 @@ public struct BACnetCalendarEntry : ASN1.IEncode, ASN1.IDecode
                 ASN1.encode_closing_tag(buffer, 1);
             }
 
-            if (entry is BacnetweekNDay)
+            if (entry is BacnetWeekNDay)
             {
                 ASN1.encode_tag(buffer, 2, true, 3);
                 entry.Encode(buffer);
@@ -56,7 +56,7 @@ public struct BACnetCalendarEntry : ASN1.IEncode, ASN1.IDecode
                     len++; // closing tag
                     break;
                 case 2:
-                    var bwd = new BacnetweekNDay();
+                    var bwd = new BacnetWeekNDay();
                     len += bwd.Decode(buffer, offset + len, count);
                     Entries.Add(bwd);
                     break;

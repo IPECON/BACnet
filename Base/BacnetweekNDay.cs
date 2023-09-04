@@ -1,69 +1,121 @@
 namespace System.IO.BACnet;
 
-public struct BacnetweekNDay : ASN1.IEncode, ASN1.IDecode
+public enum MonthOptions : byte
 {
-    public byte month;  /* 1 January, 13 Odd, 14 Even, 255 Any */
-    public byte week;   /* Don't realy understand ??? 1 for day 1 to 7, 2 for ... what's the objective ?  boycott it*/
-    public byte wday;   /* 1=Monday-7=Sunday, 255 any */
+    January = 1,
+    February = 2,
+    March = 3,
+    April = 4,
+    May = 5,
+    June = 6,
+    July = 7,
+    August = 8,
+    September = 9,
+    October = 10,
+    November = 11,
+    December = 12,
+    OddMonths = 13,
+    EvenMonths = 14,
+    AnyMonth = 0xFF,
+}
 
-    public BacnetweekNDay(byte day, byte month, byte week = 255)
+public enum WeekOfMonthOptions : byte
+{
+    DaysNumbered1To7 = 1,
+    DaysNumbered8To14 = 2,
+    DaysNumbered15To21 = 3,
+    DaysNumbered22To28 = 4,
+    DaysNumbered29To31 = 5,
+    Last7DaysOfThisMonth = 6,
+    AnyWeekOfThisMonth = 0xFF,
+}
+
+public enum DayOfWeekOptions : byte
+{
+    Monday = 1,
+    Tuesday = 2,
+    Wednesday = 3,
+    Thursday = 4,
+    Friday = 5,
+    Saturday = 6,
+    Sunday = 7,
+    AnyDayOfWeek = 0xFF,
+}
+
+public struct BacnetWeekNDay : ASN1.IEncode, ASN1.IDecode
+{
+    public MonthOptions Month;
+    public WeekOfMonthOptions WeekOfMonth;
+    public DayOfWeekOptions DayOfWeek;
+
+    public BacnetWeekNDay(byte wday, byte month, byte week = 255)
     {
-        wday = day;
-        this.month = month;
-        this.week = week;
+        DayOfWeek = (DayOfWeekOptions)wday;
+        Month = (MonthOptions)month;
+        WeekOfMonth = (WeekOfMonthOptions)week;
+    }
+
+    public BacnetWeekNDay(DayOfWeekOptions wday, MonthOptions month, WeekOfMonthOptions week = WeekOfMonthOptions.AnyWeekOfThisMonth)
+    {
+        DayOfWeek = wday;
+        Month = month;
+        WeekOfMonth = week;
+    }
+
+    public BacnetWeekNDay(byte[] data)
+    {
+        if (data.Length != 3)
+        {
+            throw new ArgumentException("Byte array must have 3 elements.");
+        }
+
+        Month = (MonthOptions)data[0];
+        WeekOfMonth = (WeekOfMonthOptions)data[1];
+        DayOfWeek = (DayOfWeekOptions)data[2];
     }
 
     public void Encode(EncodeBuffer buffer)
     {
-        buffer.Add(month);
-        buffer.Add(week);
-        buffer.Add(wday);
+        buffer.Add((byte)Month);
+        buffer.Add((byte)WeekOfMonth);
+        buffer.Add((byte)DayOfWeek);
     }
 
     public int Decode(byte[] buffer, int offset, uint count)
     {
-        month = buffer[offset++];
-        week = buffer[offset++];
-        wday = buffer[offset];
+        Month = (MonthOptions)buffer[offset++];
+        WeekOfMonth = (WeekOfMonthOptions)buffer[offset++];
+        DayOfWeek = (DayOfWeekOptions)buffer[offset];
         return 3;
     }
 
-    private static string GetDayName(int day)
+    public static string GetDayName(DayOfWeekOptions day)
     {
-        if (day == 7)
+        if (day == DayOfWeekOptions.Sunday)
             day = 0;
 
-        return CultureInfo.CurrentCulture.DateTimeFormat.DayNames[day];
+        return CultureInfo.CurrentCulture.DateTimeFormat.DayNames[(int)day];
     }
 
     public override string ToString()
     {
-        string ret = wday != 255 ? GetDayName(wday) : "Every days";
-
-        if (month != 255)
-            ret += " on " + CultureInfo.CurrentCulture.DateTimeFormat.MonthNames[month - 1];
-        else
-            ret += " on every month";
-
-        return ret;
+        return $"{Month}/{WeekOfMonth}/{DayOfWeek}";
     }
 
     public bool IsAFittingDate(DateTime date)
     {
-        if (date.Month != month && month != 255 && month != 13 && month != 14)
+        if (date.Month != (byte)Month && Month != MonthOptions.AnyMonth && Month != MonthOptions.OddMonths && Month != MonthOptions.EvenMonths)
             return false;
-        if (month == 13 && (date.Month & 1) != 1)
+        if (Month == MonthOptions.OddMonths && (date.Month & 1) != 1)
             return false;
-        if (month == 14 && (date.Month & 1) == 1)
+        if (Month == MonthOptions.EvenMonths && (date.Month & 1) == 1)
             return false;
 
-        // What about week, too much stupid : boycott it !
-
-        if (wday == 255)
+        if (DayOfWeek == DayOfWeekOptions.AnyDayOfWeek)
             return true;
-        if (wday == 7 && date.DayOfWeek == 0)  // Sunday 7 for Bacnet, 0 for .NET
+        if (DayOfWeek == DayOfWeekOptions.Sunday && date.DayOfWeek == 0)  // Sunday 7 for Bacnet, 0 for .NET
             return true;
-        if (wday == (int)date.DayOfWeek)
+        if ((byte)DayOfWeek == (byte)date.DayOfWeek)
             return true;
 
         return false;
