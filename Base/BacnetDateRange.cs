@@ -2,49 +2,55 @@ namespace System.IO.BACnet;
 
 public struct BacnetDateRange : ASN1.IEncode, ASN1.IDecode
 {
-    public BacnetDate startDate;
-    public BacnetDate endDate;
+    public BacnetDate StartDate;
+    public BacnetDate EndDate;
 
     public BacnetDateRange(BacnetDate start, BacnetDate end)
     {
-        startDate = start;
-        endDate = end;
+        StartDate = start;
+        EndDate = end;
+    }
+
+    public BacnetDateRange(DateTime start, DateTime end)
+    {
+        StartDate = new BacnetDate(start);
+        EndDate = new BacnetDate(end);
     }
 
     public void Encode(EncodeBuffer buffer)
     {
         ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE, false, 4);
-        startDate.Encode(buffer);
+        StartDate.Encode(buffer);
         ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE, false, 4);
-        endDate.Encode(buffer);
+        EndDate.Encode(buffer);
     }
 
     public int Decode(byte[] buffer, int offset, uint count)
     {
         var len = 1; // opening tag
-        len += startDate.Decode(buffer, offset + len, count);
+        len += StartDate.Decode(buffer, offset + len, count);
         len++;
-        len += endDate.Decode(buffer, offset + len, count);
+        len += EndDate.Decode(buffer, offset + len, count);
         return len;
     }
 
     public bool IsAFittingDate(DateTime date)
     {
         date = new DateTime(date.Year, date.Month, date.Day);
-        return date >= startDate.toDateTime() && date <= endDate.toDateTime();
+        return date >= StartDate.ToDateTime() && date <= EndDate.ToDateTime();
     }
 
     public override string ToString()
     {
         string ret;
 
-        if (startDate.day != 255)
-            ret = "From " + startDate;
+        if (StartDate.Day != 255)
+            ret = "From " + StartDate;
         else
             ret = "From **/**/**";
 
-        if (endDate.day != 255)
-            ret = ret + " to " + endDate;
+        if (EndDate.Day != 255)
+            ret = ret + " to " + EndDate;
         else
             ret += " to **/**/**";
 
