@@ -12,5 +12,10 @@
             ObjectId = objectId;
             ObjectName = objectName;
         }
+
+        public override string ToString()
+        {
+            return $"DeviceId: {DeviceId}, ObjectId: {ObjectId}; ObjectName: {ObjectName}";
+        }
     }
 }
