@@ -506,9 +506,9 @@ public class ASN1
                             ((IEncode)value.Value).Encode(buffer);
                         }
                     }
-                    catch
+                    catch (Exception e)
                     {
-                        throw new Exception("I cannot encode this");
+                        throw new Exception("I cannot encode this", e);
                     }
                 }
                 break;
