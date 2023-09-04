@@ -1339,7 +1339,7 @@ public class Services
                     {
                         len += ASN1.decode_application_date(buffer, offset + len, out var date);
                         len += ASN1.decode_application_time(buffer, offset + len, out var time);
-                        var timestamp = date.Date + time.TimeOfDay;
+                        var timestamp = date.ToDateTime().Date + time.TimeOfDay;
                         value.eventTimeStamps[i] = new BacnetGenericTime(timestamp, BacnetTimestampTags.TIME_STAMP_DATETIME);
                         len++; // closing tag
                     }

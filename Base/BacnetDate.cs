@@ -2,78 +2,93 @@ namespace System.IO.BACnet;
 
 public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
 {
-    public byte year;     /* 255 any */
-    public byte month;      /* 1=Jan; 255 any, 13 Odd, 14 Even */
-    public byte day;        /* 1..31; 32 last day of the month; 255 any */
-    public byte wday;       /* 1=Monday-7=Sunday, 255 any */
+    public byte Year;     /* 255 any */
+    public byte Month;      /* 1=Jan; 255 any, 13 Odd, 14 Even */
+    public byte Day;        /* 1..31; 32 last day of the month; 255 any */
+    public byte Wday;       /* 1=Monday-7=Sunday, 255 any */
+
+    public bool IsPeriodic => Year == 255 || Month > 12 || Day == 255;
 
     public BacnetDate(byte year, byte month, byte day, byte wday = 255)
     {
-        this.year = year;
-        this.month = month;
-        this.day = day;
-        this.wday = wday;
+        Year = year;
+        Month = month;
+        Day = day;
+        Wday = wday;
+    }
+
+    public BacnetDate(DateTime? dateTime)
+    {
+        if (dateTime == null || dateTime == DateTime.MinValue)
+        {
+            Year = 0xFF;
+            Month = 0xFF;
+            Day = 0xFF;
+            Wday = 0xFF;
+            return;
+        }
+
+        Year = (byte)(dateTime.Value.Year - 1900);
+        Month = (byte)dateTime.Value.Month;
+        Day = (byte)dateTime.Value.Day;
+        Wday = dateTime.Value.DayOfWeek == DayOfWeek.Sunday ? (byte)7 : (byte)dateTime.Value.DayOfWeek;
     }
 
     public void Encode(EncodeBuffer buffer)
     {
-        buffer.Add(year);
-        buffer.Add(month);
-        buffer.Add(day);
-        buffer.Add(wday);
+        buffer.Add(Year);
+        buffer.Add(Month);
+        buffer.Add(Day);
+        buffer.Add(Wday);
     }
 
     public int Decode(byte[] buffer, int offset, uint count)
     {
-        year = buffer[offset];
-        month = buffer[offset + 1];
-        day = buffer[offset + 2];
-        wday = buffer[offset + 3];
+        Year = buffer[offset];
+        Month = buffer[offset + 1];
+        Day = buffer[offset + 2];
+        Wday = buffer[offset + 3];
         return 4;
     }
 
-    public bool IsPeriodic => year == 255 || month > 12 || day == 255;
-
     public bool IsAFittingDate(DateTime date)
     {
-        if (date.Year != year + 1900 && year != 255)
+        if (date.Year != Year + 1900 && Year != 255)
             return false;
 
-        if (date.Month != month && month != 255 && month != 13 && month != 14)
+        if (date.Month != Month && Month != 255 && Month != 13 && Month != 14)
             return false;
-        if (month == 13 && (date.Month & 1) != 1)
+        if (Month == 13 && (date.Month & 1) != 1)
             return false;
-        if (month == 14 && (date.Month & 1) == 1)
+        if (Month == 14 && (date.Month & 1) == 1)
             return false;
 
-        if (date.Day != day && day != 255)
+        if (date.Day != Day && Day != 255)
             return false;
         // day 32 todo
 
-        if (wday == 255)
+        if (Wday == 255)
             return true;
 
-        if (wday == 7 && date.DayOfWeek == 0)  // Sunday 7 for Bacnet, 0 for .NET
+        if (Wday == 7 && date.DayOfWeek == 0)  // Sunday 7 for Bacnet, 0 for .NET
             return true;
 
-        if (wday == (int)date.DayOfWeek)
+        if (Wday == (int)date.DayOfWeek)
             return true;
 
         return false;
     }
 
-    public DateTime toDateTime() // Not every time possible, too much complex (any month, any year ...)
+    public DateTime ToDateTime() // Not every time possible, too much complex (any month, any year ...)
     {
-        try
+        if (!IsPeriodic && (Day > 31 || Month > 12 || Year == 0xFF || Wday > 7))
         {
-            return IsPeriodic
-                ? new DateTime(1, 1, 1)
-                : new DateTime(year + 1900, month, day);
+            throw new InvalidOperationException($"This instance of {nameof(BacnetDate)} cannot be converted do {nameof(DateTime)}");
         }
-        catch
-        {
-            return DateTime.Now; // or anything else why not !
-        }
+
+        return IsPeriodic
+            ? new DateTime(1, 1, 1)
+            : new DateTime(Year + 1900, Month, Day);
     }
 
     private static string GetDayName(int day)
@@ -88,17 +103,17 @@ public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
     {
         string ret;
 
-        if (wday != 255)
-            ret = GetDayName(wday) + " ";
+        if (Wday != 255)
+            ret = GetDayName(Wday) + " ";
         else
             ret = "";
 
-        if (day != 255)
-            ret = ret + day + "/";
+        if (Day != 255)
+            ret = ret + Day + "/";
         else
             ret += "**/";
 
-        switch (month)
+        switch (Month)
         {
             case 13:
                 ret += "odd/";
@@ -110,13 +125,13 @@ public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
                 ret += "**/";
                 break;
             default:
-                ret = ret + month + "/";
+                ret = ret + Month + "/";
                 break;
         }
 
 
-        if (year != 255)
-            ret += year + 1900;
+        if (Year != 255)
+            ret += Year + 1900;
         else
             ret += "****";
 

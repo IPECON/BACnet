@@ -1501,27 +1501,19 @@ public class ASN1
         return len;
     }
 
-    public static int decode_date(byte[] buffer, int offset, out DateTime bdate)
+    public static int decode_date(byte[] buffer, int offset, out BacnetDate bdate)
     {
-        int year = (ushort)(buffer[offset] + 1900);
-        int month = buffer[offset + 1];
-        int day = buffer[offset + 2];
-        int wday = buffer[offset + 3];
-
-        if (month == 0xFF && day == 0xFF && wday == 0xFF && year - 1900 == 0xFF)
-            bdate = new DateTime(1, 1, 1);
-        else
-            bdate = new DateTime(year, month, day);
-
+        bdate = new BacnetDate();
+        bdate.Decode(buffer, offset, 4);
         return 4;
     }
 
-    public static int decode_date_safe(byte[] buffer, int offset, uint lenValue, out DateTime bdate)
+    public static int decode_date_safe(byte[] buffer, int offset, uint lenValue, out BacnetDate bdate)
     {
         if (lenValue == 4)
             return decode_date(buffer, offset, out bdate);
 
-        bdate = new DateTime(1, 1, 1);
+        bdate = new BacnetDate(0xff, 0xff, 0xff);
         return (int)lenValue;
     }
 
@@ -1631,7 +1623,7 @@ public class ASN1
         return len;
     }
 
-    public static int decode_application_date(byte[] buffer, int offset, out DateTime bdate)
+    public static int decode_application_date(byte[] buffer, int offset, out BacnetDate bdate)
     {
         var len = 0;
         decode_tag_number(buffer, offset + len, out var tagNumber);
@@ -1643,7 +1635,7 @@ public class ASN1
         }
         else
         {
-            bdate = new DateTime(1, 1, 1);
+            bdate = new BacnetDate(0xff, 0xff, 0xff);
             len = -1;
         }
         return len;
@@ -1655,21 +1647,22 @@ public class ASN1
         return IS_CONTEXT_SPECIFIC(buffer[offset]) && myTagNumber == tagNumber;
     }
 
-    public static int decode_context_date(byte[] buffer, int offset, byte tagNumber, out DateTime bdate)
-    {
-        var len = 0;
+    // What's the purpose of this?
+    //public static int decode_context_date(byte[] buffer, int offset, byte tagNumber, out BacnetDate bdate)
+    //{
+    //    var len = 0;
 
-        if (decode_is_context_tag_with_length(buffer, offset + len, tagNumber, out len))
-        {
-            len += decode_date(buffer, offset + len, out bdate);
-        }
-        else
-        {
-            bdate = new DateTime(1, 1, 1);
-            len = -1;
-        }
-        return len;
-    }
+    //    if (decode_is_context_tag_with_length(buffer, offset + len, tagNumber, out len))
+    //    {
+    //        len += decode_date(buffer, offset + len, out bdate);
+    //    }
+    //    else
+    //    {
+    //        bdate = new BacnetDate(0xff, 0xff, 0xff);
+    //        len = -1;
+    //    }
+    //    return len;
+    //}
 
     public static int bacapp_decode_data(byte[] buffer, int offset, int maxLength, BacnetApplicationTags tagDataType, uint lenValueType, out BacnetValue value)
     {
