@@ -1,5 +1,18 @@
 namespace System.IO.BACnet;
 
+/*
+Date ::= [APPLICATION 10] OCTET STRING (SIZE(4)) -- see 20.2.12
+-- first octet year minus 1900 X'FF' = unspecified
+-- second octet month (1.. 14) 1 = January
+-- 13 = odd months
+-- 14 = even months
+-- X'FF' = unspecified
+-- third octet day of month (1..32), 32 = last day of month
+-- X'FF' = unspecified
+-- fourth octet day of week (1..7) 1 = Monday
+-- 7 = Sunday
+-- X'FF' = unspecified 
+*/
 public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
 {
     public byte Year;     /* 255 any */

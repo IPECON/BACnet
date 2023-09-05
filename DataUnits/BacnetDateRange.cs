@@ -1,5 +1,11 @@
 namespace System.IO.BACnet;
 
+/*
+BACnetDateRange ::= SEQUENCE {
+ StartDate Date,
+ endDate Date
+ }
+*/
 public struct BacnetDateRange : ASN1.IEncode, ASN1.IDecode
 {
     public BacnetDate StartDate;

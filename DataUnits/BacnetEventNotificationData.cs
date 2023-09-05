@@ -1,5 +1,38 @@
 namespace System.IO.BACnet;
-
+/*
+ConfirmedEventNotification-Request ::= SEQUENCE {
+ processIdentifier [0] Unsigned32,
+ initiatingDeviceIdentifier [1] BACnetObjectIdentifier,
+ eventObjectIdentifier [2] BACnetObjectIdentifier,
+ timeStamp [3] BACnetTimeStamp,
+ notificationClass [4] Unsigned,
+ priority [5] Unsigned8,
+ eventType [6] BACnetEventType,
+ messageText [7] CharacterString OPTIONAL,
+ notifyType [8] BACnetNotifyType,
+ ackRequired [9] BOOLEAN OPTIONAL,
+ fromState [10] BACnetEventState OPTIONAL,
+ toState [11] BACnetEventState,
+ eventValues [12] BACnetNotificationParameters OPTIONAL
+ }
+*/
+/*
+UnconfirmedEventNotification-Request ::= SEQUENCE {
+ processIdentifier [0] Unsigned32,
+ initiatingDeviceIdentifier [1] BACnetObjectIdentifier,
+ eventObjectIdentifier [2] BACnetObjectIdentifier,
+ timeStamp [3] BACnetTimeStamp,
+ notificationClass [4] Unsigned,
+ priority [5] Unsigned8,
+ eventType [6] BACnetEventType,
+ messageText [7] CharacterString OPTIONAL,
+ notifyType [8] BACnetNotifyType,
+ ackRequired [9] BOOLEAN OPTIONAL,
+ fromState [10] BACnetEventState OPTIONAL,
+ toState [11] BACnetEventState,
+ eventValues [12] BACnetNotificationParameters OPTIONAL
+ }
+*/
 public struct BacnetEventNotificationData
 {
     public uint processIdentifier;

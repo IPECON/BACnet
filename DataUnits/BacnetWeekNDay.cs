@@ -42,6 +42,23 @@ public enum DayOfWeekOptions : byte
     AnyDayOfWeek = 0xFF,
 }
 
+/*
+BACnetWeekNDay ::= OCTET STRING (SIZE (3))
+-- first octet month (1..14) 1 =January
+-- 13 = odd months
+-- 14 = even months
+-- X'FF' = any month
+-- second octet weekOfMonth where: 1 = days numbered 1-7
+-- 2 = days numbered 8-14
+-- 3 = days numbered 15-21
+-- 4 = days numbered 22-28
+-- 5 = days numbered 29-31
+-- 6 = last 7 days of this month
+-- X'FF' = any week of this month
+-- third octet dayOfWeek (1..7) where 1 = Monday
+-- 7 = Sunday
+-- X'FF' = any day of week 
+*/
 public struct BacnetWeekNDay : ASN1.IEncode, ASN1.IDecode
 {
     public MonthOptions Month;
