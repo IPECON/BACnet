@@ -2002,7 +2002,7 @@ public class ASN1
             }
             if (propertyId == BacnetPropertyIds.PROP_DATE_LIST)
             {
-                var v = new BACnetCalendarEntry();
+                var v = new BacnetCalendarEntry();
                 tagLen = v.Decode(buffer, offset, (uint)maxOffset);
                 if (tagLen < 0) return -1;
                 value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED;
@@ -2036,6 +2036,15 @@ public class ASN1
                 else
                     return -1;
 
+                return len;
+            }
+
+            if (propertyId == BacnetPropertyIds.PROP_EXCEPTION_SCHEDULE)
+            {
+                var bacnetSpecialEvent = new BacnetSpecialEvent();
+                len += bacnetSpecialEvent.Decode(buffer, offset, (uint)maxOffset);
+                value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED;
+                value.Value = bacnetSpecialEvent;
                 return len;
             }
 
