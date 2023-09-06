@@ -6,7 +6,7 @@ BACnetTimeValue ::= SEQUENCE {
  value ABSTRACT-SYNTAX.&Type -- any primitive datatype, complex types cannot be decoded
  }
 */
-public struct BacnetTimeValue : ASN1.IEncode, ASN1.IDecode
+public class BacnetTimeValue : ASN1.IEncode, ASN1.IDecode
 {
     public BacnetTime Time { get; set; }
     public uint? Value { get; set; }

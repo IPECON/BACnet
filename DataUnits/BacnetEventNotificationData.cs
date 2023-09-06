@@ -33,7 +33,7 @@ UnconfirmedEventNotification-Request ::= SEQUENCE {
  eventValues [12] BACnetNotificationParameters OPTIONAL
  }
 */
-public struct BacnetEventNotificationData
+public class BacnetEventNotificationData
 {
     public uint processIdentifier;
     public BacnetObjectId initiatingObjectIdentifier;

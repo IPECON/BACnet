@@ -38,14 +38,14 @@ public class BacnetCalendarEntry : ASN1.IEncode, ASN1.IDecode
         if (Date is not null)
         {
             ASN1.encode_tag(buffer, 0, true, 4);
-            Date.Value.Encode(buffer);
+            Date.Encode(buffer);
             return;
         }
 
         if (DateRange is not null)
         {
             ASN1.encode_opening_tag(buffer, 1);
-            DateRange.Value.Encode(buffer);
+            DateRange.Encode(buffer);
             ASN1.encode_closing_tag(buffer, 1);
             return;
         }
@@ -53,7 +53,7 @@ public class BacnetCalendarEntry : ASN1.IEncode, ASN1.IDecode
         if (WeekNDay is not null)
         {
             ASN1.encode_tag(buffer, 2, true, 3);
-            WeekNDay.Value.Encode(buffer);
+            WeekNDay.Encode(buffer);
             return;
         }
 

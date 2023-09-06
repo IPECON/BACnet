@@ -6,10 +6,15 @@ BACnetDateRange ::= SEQUENCE {
  endDate Date
  }
 */
-public struct BacnetDateRange : ASN1.IEncode, ASN1.IDecode
+public class BacnetDateRange : ASN1.IEncode, ASN1.IDecode
 {
     public BacnetDate StartDate;
     public BacnetDate EndDate;
+
+    public BacnetDateRange()
+    {
+        
+    }
 
     public BacnetDateRange(BacnetDate start, BacnetDate end)
     {
@@ -34,8 +39,10 @@ public struct BacnetDateRange : ASN1.IEncode, ASN1.IDecode
     public int Decode(byte[] buffer, int offset, uint count)
     {
         var len = 1; // opening tag
+        StartDate = new BacnetDate();
         len += StartDate.Decode(buffer, offset + len, count);
         len++;
+        EndDate = new BacnetDate();
         len += EndDate.Decode(buffer, offset + len, count);
         return len;
     }

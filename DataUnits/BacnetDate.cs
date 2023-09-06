@@ -13,7 +13,7 @@ Date ::= [APPLICATION 10] OCTET STRING (SIZE(4)) -- see 20.2.12
 -- 7 = Sunday
 -- X'FF' = unspecified 
 */
-public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
+public class BacnetDate : ASN1.IEncode, ASN1.IDecode
 {
     public byte Year;     /* 255 any */
     public byte Month;      /* 1=Jan; 255 any, 13 Odd, 14 Even */
@@ -21,6 +21,11 @@ public struct BacnetDate : ASN1.IEncode, ASN1.IDecode
     public byte Wday;       /* 1=Monday-7=Sunday, 255 any */
 
     public bool IsPeriodic => Year == 255 || Month > 12 || Day == 255;
+
+    public BacnetDate()
+    {
+        
+    }
 
     public BacnetDate(byte year, byte month, byte day, byte wday = 255)
     {

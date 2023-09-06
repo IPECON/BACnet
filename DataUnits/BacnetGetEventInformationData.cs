@@ -14,7 +14,7 @@ GetEventInformation-ACK ::= SEQUENCE {
  moreEvents [1] BOOLEAN
 }
 */
-public struct BacnetGetEventInformationData
+public class BacnetGetEventInformationData
 {
     public BacnetObjectId objectIdentifier;
     public BacnetEventStates eventState;

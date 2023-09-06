@@ -59,11 +59,16 @@ BACnetWeekNDay ::= OCTET STRING (SIZE (3))
 -- 7 = Sunday
 -- X'FF' = any day of week 
 */
-public struct BacnetWeekNDay : ASN1.IEncode, ASN1.IDecode
+public class BacnetWeekNDay : ASN1.IEncode, ASN1.IDecode
 {
     public MonthOptions Month;
     public WeekOfMonthOptions WeekOfMonth;
     public DayOfWeekOptions DayOfWeek;
+
+    public BacnetWeekNDay()
+    {
+        
+    }
 
     public BacnetWeekNDay(byte wday, byte month, byte week = 255)
     {
