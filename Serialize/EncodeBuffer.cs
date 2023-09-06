@@ -110,6 +110,18 @@ public class EncodeBuffer
         return offset + " - " + serialize_counter;
     }
 
+    public string ToHex()
+    {
+        StringBuilder hex = new StringBuilder(buffer.Length * 4);
+        for (var index = 0; index < offset; index++)
+        {
+            var b = buffer[index];
+            hex.AppendFormat("<{0:x2}>", b);
+        }
+
+        return hex.ToString();
+    }
+
     public int GetLength()
     {
         return Math.Min(offset, max_offset);
