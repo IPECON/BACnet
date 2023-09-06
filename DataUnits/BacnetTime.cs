@@ -68,7 +68,7 @@ public class BacnetTime : ASN1.IEncode, ASN1.IDecode
 
     public void Encode(EncodeBuffer buffer)
     {
-        ASN1.encode_application_octet_string(buffer, new[] { Hour, Minute, Second, Hundreths }, 0, 4);
+        ASN1.encode_octetString(buffer, new[] { Hour, Minute, Second, Hundreths }, 0, 4);
     }
 
     public int Decode(byte[] buffer, int offset, uint count)

@@ -19,7 +19,30 @@ public class BacnetSpecialEvent : ASN1.IEncode, ASN1.IDecode
 
     public void Encode(EncodeBuffer buffer)
     {
-        throw new NotImplementedException();
+        if (CalendarEntry != null)
+        {
+            ASN1.encode_opening_tag(buffer, 0);
+            CalendarEntry.Encode(buffer);
+            ASN1.encode_closing_tag(buffer, 0);
+        }
+        else if (CalendarReference != null)
+        {
+            throw new NotImplementedException($"{nameof(CalendarReference)} encode is not implemented.");
+            //ASN1.encode_opening_tag(buffer, 1);
+        }
+        else
+        {
+            throw new NotSupportedException();
+        }
+
+        ASN1.encode_opening_tag(buffer, 2);
+        foreach (var bacnetTimeValue in ListOfTimeValues)
+        {
+            bacnetTimeValue.Encode(buffer);
+        }
+
+        ASN1.encode_closing_tag(buffer, 2);
+        ASN1.encode_context_unsigned(buffer, 3, Priority);
     }
 
     public int Decode(byte[] buffer, int offset, uint count)
@@ -34,7 +57,7 @@ public class BacnetSpecialEvent : ASN1.IEncode, ASN1.IDecode
         }
         else if (tagName == 1)
         {
-            throw new NotImplementedException($"{nameof(CalendarReference)} is not implemented.");
+            throw new NotImplementedException($"{nameof(CalendarReference)} decode is not implemented.");
         }
         else
         {

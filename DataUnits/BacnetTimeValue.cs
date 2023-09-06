@@ -13,9 +13,19 @@ public struct BacnetTimeValue : ASN1.IEncode, ASN1.IDecode
 
     public void Encode(EncodeBuffer buffer)
     {
-        //Time.Encode(buffer);
-        //ASN1.encode_application_unsigned(buffer, Value);
-        throw new NotImplementedException();
+        ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
+        Time.Encode(buffer);
+        if (Value == null)
+        {
+            ASN1.bacapp_encode_application_data(buffer, new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_NULL, null));
+        }
+        else
+        {
+            // TODO: Other types
+            ASN1.encode_application_enumerated(buffer, Value.Value);
+        }
+
+        string hex = buffer.ToHex();
     }
 
     public int Decode(byte[] buffer, int offset, uint count)
