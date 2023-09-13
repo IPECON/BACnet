@@ -11,6 +11,16 @@ public class BacnetTimeValue : ASN1.IEncode, ASN1.IDecode
     public BacnetTime Time { get; set; }
     public BacnetValue Value { get; set; }
 
+    public BacnetTimeValue()
+    {
+    }
+
+    public BacnetTimeValue(TimeSpan timeSpan, BacnetValue value)
+    {
+        Time = new BacnetTime(timeSpan);
+        Value = value;
+    }
+
     public void Encode(EncodeBuffer buffer)
     {
         ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
