@@ -2048,6 +2048,15 @@ public class ASN1
                 return len;
             }
 
+            if (propertyId == BacnetPropertyIds.PROP_WEEKLY_SCHEDULE)
+            {
+                var bacnetDailySchedule = new BacnetDailySchedule();
+                len += bacnetDailySchedule.Decode(buffer, offset, (uint)maxOffset);
+                value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED;
+                value.Value = bacnetDailySchedule;
+                return len;
+            }
+
             value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED;
             var list = new List<BacnetValue>();
 
