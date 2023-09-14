@@ -44,13 +44,13 @@ public class BacnetClient : IDisposable
     /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
     /// TODO: invoke-id should be PER (remote) DEVICE!
     /// </summary>
-    private Dictionary<byte, List<Tuple<byte, byte[]>>> _segmentsPerInvokeId = new();
-    private Dictionary<byte, object> _locksPerInvokeId = new();
-    private Dictionary<byte, byte> _expectedSegmentsPerInvokeId = new();
+    private readonly Dictionary<byte, List<Tuple<byte, byte[]>>> _segmentsPerInvokeId = new();
+    private readonly Dictionary<byte, object> _locksPerInvokeId = new();
+    private readonly Dictionary<byte, byte> _expectedSegmentsPerInvokeId = new();
 
-    public const int DEFAULT_UDP_PORT = 0xBAC0;
-    public const int DEFAULT_TIMEOUT = 1000;
-    public const int DEFAULT_RETRIES = 3;
+    public const int DefaultUdpPort = 0xBAC0;
+    public const int DefaultTimeout = 1000;
+    public const int DefaultRetries = 3;
 
     public IBacnetTransport Transport { get; }
     public ushort VendorId { get; set; } = 260;
@@ -82,7 +82,7 @@ public class BacnetClient : IDisposable
         // ReSharper restore InconsistentNaming
     }
 
-    private class LastSegmentAck
+    private sealed class LastSegmentAck
     {
         private readonly ManualResetEvent _wait = new(false);
         private readonly object _lockObject = new();
@@ -120,12 +120,12 @@ public class BacnetClient : IDisposable
         }
     }
 
-    public BacnetClient(int port = DEFAULT_UDP_PORT, int timeout = DEFAULT_TIMEOUT, int retries = DEFAULT_RETRIES)
+    public BacnetClient(int port = DefaultUdpPort, int timeout = DefaultTimeout, int retries = DefaultRetries)
         : this(new BacnetIpUdpProtocolTransport(port), timeout, retries)
     {
     }
 
-    public BacnetClient(IBacnetTransport transport, int timeout = DEFAULT_TIMEOUT, int retries = DEFAULT_RETRIES)
+    public BacnetClient(IBacnetTransport transport, int timeout = DefaultTimeout, int retries = DefaultRetries)
     {
         Transport = transport;
         Timeout = timeout;
@@ -189,7 +189,7 @@ public class BacnetClient : IDisposable
     public event CreateObjectRequestHandler OnCreateObjectRequest;
     public delegate void DeleteObjectRequestHandler(BacnetClient sender, BacnetAddress adr, byte invokeId, BacnetObjectId objectId, BacnetMaxSegments maxSegments);
     public event DeleteObjectRequestHandler OnDeleteObjectRequest;
-    public delegate void GetAlarmSummaryOrEventInformationRequestHandler(BacnetClient sender, BacnetAddress adr, byte invokeId, bool getEvent, BacnetObjectId objectId, BacnetMaxAdpu maxApdu, BacnetMaxSegments max_segments);
+    public delegate void GetAlarmSummaryOrEventInformationRequestHandler(BacnetClient sender, BacnetAddress adr, byte invokeId, bool getEvent, BacnetObjectId objectId, BacnetMaxAdpu maxApdu, BacnetMaxSegments maxSegments);
     public event GetAlarmSummaryOrEventInformationRequestHandler OnGetAlarmSummaryOrEventInformation;
     public delegate void AlarmAcknowledgeRequestHandler(BacnetClient sender, BacnetAddress adr, byte invokeId, uint ackProcessIdentifier, BacnetObjectId eventObjectIdentifier, uint eventStateAcked, string ackSource, BacnetGenericTime eventTimeStamp, BacnetGenericTime ackTimeStamp);
     public event AlarmAcknowledgeRequestHandler OnAlarmAcknowledge;
@@ -1029,7 +1029,7 @@ public class BacnetClient : IDisposable
     }
 
     // Modif FC
-    public void RegisterAsForeignDevice(string bbmdIp, short ttl, int port = DEFAULT_UDP_PORT)
+    public void RegisterAsForeignDevice(string bbmdIp, short ttl, int port = DefaultUdpPort)
     {
         try
         {
@@ -1058,11 +1058,11 @@ public class BacnetClient : IDisposable
         }
     }
 
-    public void RemoteWhoIs(string bbmdIP, int port = DEFAULT_UDP_PORT, int lowLimit = -1, int highLimit = -1, BacnetAddress source = null)
+    public void RemoteWhoIs(string bbmdIp, int port = DefaultUdpPort, int lowLimit = -1, int highLimit = -1, BacnetAddress source = null)
     {
         try
         {
-            var ep = new IPEndPoint(IPAddress.Parse(bbmdIP), port);
+            var ep = new IPEndPoint(IPAddress.Parse(bbmdIp), port);
 
             var b = GetEncodeBuffer(Transport.HeaderLength);
             var broadcast = Transport.GetBroadcastAddress();
@@ -1084,7 +1084,7 @@ public class BacnetClient : IDisposable
             }
 
             if (sent)
-                Log.Debug($"Sending Remote Whois to {bbmdIP}");
+                Log.Debug($"Sending Remote Whois to {bbmdIp}");
             else
                 Log.Warn("The given address do not match with the IP version");
         }
@@ -2435,18 +2435,18 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
     
-    public void GetAlarmSummaryOrEventInformationResponse(BacnetAddress adr, bool getEvent, byte invoke_id, Segmentation segmentation, BacnetGetEventInformationData[] data, bool more_events)
+    public void GetAlarmSummaryOrEventInformationResponse(BacnetAddress adr, bool getEvent, byte invokeId, Segmentation segmentation, BacnetGetEventInformationData[] data, bool moreEvents)
     {
         // 'getEvent' is not currently used.   Can be used if ever implementing GetAlarmSummary.
         // response could be segmented
         // but if you don't want it segmented (which would be normal usage)
         // you have to compute the message data and the 'more' flag
         // outside this function.
-        HandleSegmentationResponse(adr, invoke_id, segmentation, (o) =>
+        HandleSegmentationResponse(adr, invokeId, segmentation, (_) =>
         {
-            SendComplexAck(adr, invoke_id, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_GET_EVENT_INFORMATION, (b) =>
+            SendComplexAck(adr, invokeId, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_GET_EVENT_INFORMATION, (b) =>
             {
-                Services.EncodeGetEventInformationAcknowledge(b, data, more_events);
+                Services.EncodeGetEventInformationAcknowledge(b, data, moreEvents);
             });
         });
     }
@@ -2770,7 +2770,7 @@ public class BacnetClient : IDisposable
             return;
 
         // start new thread to handle the segment sequence (if required)
-        ThreadPool.QueueUserWorkItem(o =>
+        ThreadPool.QueueUserWorkItem(_ =>
         {
             var oldMaxInfoFrames = Transport.MaxInfoFrames;
             Transport.MaxInfoFrames = segmentation.window_size; // increase max_info_frames, to increase throughput. This might be against 'standard'
@@ -2866,7 +2866,7 @@ public class BacnetClient : IDisposable
 
     public void ReadPropertyResponse(BacnetAddress adr, byte invokeId, Segmentation segmentation, BacnetObjectId objectId, BacnetPropertyReference property, IEnumerable<BacnetValue> value)
     {
-        HandleSegmentationResponse(adr, invokeId, segmentation, o =>
+        HandleSegmentationResponse(adr, invokeId, segmentation, _ =>
         {
             SendComplexAck(adr, invokeId, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, b =>
             {
@@ -2885,7 +2885,7 @@ public class BacnetClient : IDisposable
 
     public void ReadPropertyMultipleResponse(BacnetAddress adr, byte invokeId, Segmentation segmentation, IList<BacnetReadAccessResult> values)
     {
-        HandleSegmentationResponse(adr, invokeId, segmentation, o =>
+        HandleSegmentationResponse(adr, invokeId, segmentation, _ =>
         {
             SendComplexAck(adr, invokeId, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, b =>
             {
@@ -2896,7 +2896,7 @@ public class BacnetClient : IDisposable
 
     public void ReadRangeResponse(BacnetAddress adr, byte invokeId, Segmentation segmentation, BacnetObjectId objectId, BacnetPropertyReference property, BacnetResultFlags status, uint itemCount, byte[] applicationData, BacnetReadRangeRequestTypes requestType, uint firstSequenceNo)
     {
-        HandleSegmentationResponse(adr, invokeId, segmentation, o =>
+        HandleSegmentationResponse(adr, invokeId, segmentation, _ =>
         {
             SendComplexAck(adr, invokeId, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_RANGE, b =>
             {
@@ -2907,7 +2907,7 @@ public class BacnetClient : IDisposable
 
     public void ReadFileResponse(BacnetAddress adr, byte invokeId, Segmentation segmentation, int position, uint count, bool endOfFile, byte[] fileBuffer)
     {
-        HandleSegmentationResponse(adr, invokeId, segmentation, o =>
+        HandleSegmentationResponse(adr, invokeId, segmentation, _ =>
         {
             SendComplexAck(adr, invokeId, segmentation, BacnetConfirmedServices.SERVICE_CONFIRMED_ATOMIC_READ_FILE, b =>
             {
