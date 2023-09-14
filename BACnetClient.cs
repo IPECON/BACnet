@@ -71,12 +71,6 @@ public class BacnetClient : IDisposable
         set => _retries = Math.Max(1, value);
     }
 
-    // These members allows to access undecoded buffer by the application
-    // layer, when the basic undecoding process is not really able to do the job
-    // in particular with application_specific_encoding values
-    public byte[] raw_buffer;
-    public int raw_offset, raw_length;
-
     public class Segmentation
     {
         // ReSharper disable InconsistentNaming
@@ -205,10 +199,6 @@ public class BacnetClient : IDisposable
         try
         {
             Log.Debug($"ConfirmedServiceRequest {service}");
-
-            raw_buffer = buffer;
-            raw_length = length;
-            raw_offset = offset;
 
             OnConfirmedServiceRequest?.Invoke(this, address, type, service, maxSegments, maxAdpu, invokeId, buffer, offset, length);
 
