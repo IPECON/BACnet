@@ -31,16 +31,21 @@ public class BacnetDailySchedule : ASN1.IEncode, ASN1.IDecode
         }
 
         DaySchedule = new List<BacnetTimeValue>();
+
+        if (ASN1.IS_CLOSING_TAG(buffer[offset + len]))
+        {
+            len++;
+            return len;
+        }
+       
         while (offset + len < count - 1)
         {
             BacnetTimeValue timeValue = new BacnetTimeValue();
             len += timeValue.Decode(buffer, offset + len, count);
             DaySchedule.Add(timeValue);
-            ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out _);
 
-            if (tagNumber == 0)
+            if (ASN1.IS_CLOSING_TAG(buffer[offset + len]))
             {
-                // Closing tag
                 len++;
                 break;
             }
