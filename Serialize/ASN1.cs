@@ -1647,22 +1647,21 @@ public class ASN1
         return IS_CONTEXT_SPECIFIC(buffer[offset]) && myTagNumber == tagNumber;
     }
 
-    // What's the purpose of this?
-    //public static int decode_context_date(byte[] buffer, int offset, byte tagNumber, out BacnetDate bdate)
-    //{
-    //    var len = 0;
+    public static int decode_context_date(byte[] buffer, int offset, byte tagNumber, out BacnetDate bdate)
+    {
+        var len = 0;
 
-    //    if (decode_is_context_tag_with_length(buffer, offset + len, tagNumber, out len))
-    //    {
-    //        len += decode_date(buffer, offset + len, out bdate);
-    //    }
-    //    else
-    //    {
-    //        bdate = new BacnetDate(0xff, 0xff, 0xff);
-    //        len = -1;
-    //    }
-    //    return len;
-    //}
+        if (decode_is_context_tag_with_length(buffer, offset + len, tagNumber, out len))
+        {
+            len += decode_date(buffer, offset + len, out bdate);
+        }
+        else
+        {
+            bdate = new BacnetDate(0xff, 0xff, 0xff);
+            len = -1;
+        }
+        return len;
+    }
 
     public static int bacapp_decode_data(byte[] buffer, int offset, int maxLength, BacnetApplicationTags tagDataType, uint lenValueType, out BacnetValue value)
     {
