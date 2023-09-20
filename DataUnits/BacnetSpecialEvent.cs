@@ -27,12 +27,11 @@ public class BacnetSpecialEvent : ASN1.IEncode, ASN1.IDecode
         }
         else if (CalendarReference != null)
         {
-            throw new NotImplementedException($"{nameof(CalendarReference)} encode is not implemented.");
-            //ASN1.encode_opening_tag(buffer, 1);
+            ASN1.encode_context_object_id(buffer, 1, CalendarReference.Value.Type, CalendarReference.Value.Instance);
         }
         else
         {
-            throw new NotSupportedException();
+            throw new InvalidOperationException();
         }
 
         ASN1.encode_opening_tag(buffer, 2);
@@ -57,7 +56,8 @@ public class BacnetSpecialEvent : ASN1.IEncode, ASN1.IDecode
         }
         else if (tagName == 1)
         {
-            throw new NotImplementedException($"{nameof(CalendarReference)} decode is not implemented.");
+            len += ASN1.decode_object_id(buffer, offset + len, out BacnetObjectTypes objectType, out var instance);
+            CalendarReference = new BacnetObjectId(objectType, instance);
         }
         else
         {
