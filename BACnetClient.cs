@@ -2314,6 +2314,8 @@ public class BacnetClient : IDisposable
                 EndDeviceCommunicationControlRequest(result, out var ex);
                 if (ex != null)
                     throw ex;
+
+                return;
             }
             if (r < maxRetries - 1)
                 result.Resend();
@@ -2350,8 +2352,16 @@ public class BacnetClient : IDisposable
         res.Dispose();
     }
 
-    // TODO: Remove bool as return value and use 'throw OperationTimedOut();' when this disgusting recursion is removed
-    public bool GetAlarmSummaryOrEventRequest(BacnetAddress adr, bool getEvent, ref IList<BacnetGetEventInformationData> alarms, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
+    public void GetAlarmSummaryOrEventRequestAll(BacnetAddress adr, bool getEvent, IList<BacnetGetEventInformationData> alarms, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
+    {
+        bool moreEvents;
+        do
+        {
+            GetAlarmSummaryOrEventRequest(adr, getEvent, alarms, out moreEvents, invokeId, maxRetries, timeout);
+        } while (moreEvents);
+    }
+
+    public void GetAlarmSummaryOrEventRequest(BacnetAddress adr, bool getEvent, IList<BacnetGetEventInformationData> alarms, out bool hasMoreEvents, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
         maxRetries ??= Retries;
         timeout ??= Timeout;
@@ -2361,18 +2371,18 @@ public class BacnetClient : IDisposable
         {
             if (result.WaitForDone(timeout.Value))
             {
-                EndGetAlarmSummaryOrEventRequest(result, getEvent, ref alarms, out var moreEvent, out var ex);
+                EndGetAlarmSummaryOrEventRequest(result, getEvent, alarms, out hasMoreEvents, out var ex);
                 if (ex != null)
-                    return false;
+                    throw ex;
 
-                return !moreEvent || GetAlarmSummaryOrEventRequest(adr, getEvent, ref alarms);
+                return;
             }
 
             if (r < maxRetries - 1)
                 result.Resend();
         }
 
-        return false;
+        throw OperationTimedOut();
     }
 
     public Task<IList<BacnetGetEventInformationData>> GetEventsAsync(BacnetAddress address, byte invokeId = 0)
@@ -2381,8 +2391,14 @@ public class BacnetClient : IDisposable
 
         return Task<IList<BacnetGetEventInformationData>>.Factory.StartNew(() =>
         {
-            if (!GetAlarmSummaryOrEventRequest(address, true, ref result, invokeId))
-                throw new Exception($"Failed to get events from {address}");
+            try
+            {
+                GetAlarmSummaryOrEventRequestAll(address, true, result, invokeId);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Failed to get events from {address}", e);
+            }
 
             return result;
         });
@@ -2414,7 +2430,7 @@ public class BacnetClient : IDisposable
         return ret;
     }
 
-    public void EndGetAlarmSummaryOrEventRequest(IAsyncResult result, bool getEvent, ref IList<BacnetGetEventInformationData> alarms, out bool moreEvent, out Exception ex)
+    public void EndGetAlarmSummaryOrEventRequest(IAsyncResult result, bool getEvent, IList<BacnetGetEventInformationData> alarms, out bool moreEvent, out Exception ex)
     {
         moreEvent = false;
         var res = (BacnetAsyncResult)result;
@@ -2464,6 +2480,8 @@ public class BacnetClient : IDisposable
                 EndAlarmAcknowledgement(result, out var ex);
                 if (ex != null)
                     throw ex;
+
+                return;
             }
             if (r < maxRetries - 1)
                 result.Resend();
@@ -2511,6 +2529,8 @@ public class BacnetClient : IDisposable
                 EndReinitializeRequest(result, out var ex);
                 if (ex != null)
                     throw ex;
+
+                return;
             }
             if (r < maxRetries - 1)
                 result.Resend();
@@ -2618,6 +2638,8 @@ public class BacnetClient : IDisposable
                 EndLifeSafetyOperationRequest(result, out var ex);
                 if (ex != null)
                     throw ex;
+
+                return;
             }
             if (r < maxRetries - 1)
                 result.Resend();
