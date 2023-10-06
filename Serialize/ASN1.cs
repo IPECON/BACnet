@@ -979,9 +979,12 @@ public class ASN1
                 // FC : two values one Date & one Time => change to one datetime
                 if (localValueList.Count == 2 && localValueList[0].Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE && localValueList[1].Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME)
                 {
-                    var date = (DateTime)localValueList[0].Value;
+                    var date = (BacnetDate)localValueList[0].Value;
                     var time = (DateTime)localValueList[1].Value;
-                    var bdatetime = new DateTime(date.Year, date.Month, date.Day, time.Hour, time.Minute, time.Second, time.Millisecond);
+                    var year = date.Year == 255 ? 1 : date.Year;
+                    var month = date.Month == 255 ? 1 : date.Month;
+                    var day = date.Day == 255 ? 1 : date.Day;
+                    var bdatetime = new DateTime(year, month, day, time.Hour, time.Minute, time.Second, time.Millisecond);
                     localValueList.Clear();
                     localValueList.Add(new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_DATETIME, bdatetime));
                     new_entry.value = localValueList;
