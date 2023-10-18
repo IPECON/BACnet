@@ -1,4 +1,6 @@
-﻿namespace System.IO.BACnet;
+﻿using System.Linq;
+
+namespace System.IO.BACnet;
 
 //BACnetDailySchedule ::= SEQUENCE {
 // day-schedule [0] SEQUENCE OF BACnetTimeValue
@@ -52,5 +54,10 @@ public class BacnetDailySchedule : ASN1.IEncode, ASN1.IDecode
         }
 
         return len;
+    }
+
+    public override string ToString()
+    {
+        return string.Join("; ", DaySchedule.Select(d => $"{d.Time} -> {d.Value}"));
     }
 }
