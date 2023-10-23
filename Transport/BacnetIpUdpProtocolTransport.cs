@@ -36,6 +36,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     private readonly bool _exclusivePort;
     private readonly bool _dontFragment;
     private readonly string _localEndpoint;
+    private readonly ITransportMonitor _transportMonitor;
     private BacnetAddress _broadcastAddress;
     private bool _disposing;
 
@@ -49,7 +50,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     public virtual IPEndPoint LocalEndPoint => (IPEndPoint)_exclusiveConn.Client.LocalEndPoint;
 
     public BacnetIpUdpProtocolTransport(int port, bool useExclusivePort = false, bool dontFragment = false,
-        int maxPayload = 1472, string localEndpointIp = "")
+        int maxPayload = 1472, string localEndpointIp = "", ITransportMonitor transportMonitor = null)
     {
         SharedPort = port;
         MaxBufferLength = maxPayload;
@@ -60,12 +61,14 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         _exclusivePort = useExclusivePort;
         _dontFragment = dontFragment;
         _localEndpoint = localEndpointIp;
+        _transportMonitor = transportMonitor;
     }
 
     public BacnetIpUdpProtocolTransport(int sharedPort, int exclusivePort, bool dontFragment = false,
-        int maxPayload = 1472, string localEndpointIp = "")
+        int maxPayload = 1472, string localEndpointIp = "", ITransportMonitor transportMonitor = null)
         : this(sharedPort, false, dontFragment, maxPayload, localEndpointIp)
     {
+        _transportMonitor = transportMonitor;
         ExclusivePort = exclusivePort;
     }
 
@@ -235,6 +238,8 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
             //verify message
             Convert(ep, out var remoteAddress);
 
+            _transportMonitor?.FrameReceived(receivedLength, ep);
+
             if (receivedLength < BVLC.BVLC_HEADER_LENGTH)
             {
                 var receiveBufferHex = ConvertToHex(receiveBuffer);
@@ -325,7 +330,9 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
     public int Send(byte[] buffer, int dataLength, IPEndPoint ep)
     {
-        return _exclusiveConn.Send(buffer, dataLength, ep);
+        var bytesSent = _exclusiveConn.Send(buffer, dataLength, ep);
+        _transportMonitor?.FrameSent(bytesSent, ep);
+        return bytesSent;
     }
 
     public override int Send(byte[] buffer, int offset, int dataLength, BacnetAddress address, bool waitForTransmission, int timeout)
@@ -341,7 +348,9 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         //create end point
         Convert(address, out var ep);
 
-        return _exclusiveConn.Send(buffer, fullLength, ep);
+        var bytesSent = _exclusiveConn.Send(buffer, fullLength, ep);
+        _transportMonitor?.FrameSent(bytesSent, ep);
+        return bytesSent;
     }
 
     public static void Convert(IPEndPoint ep, out BacnetAddress address)

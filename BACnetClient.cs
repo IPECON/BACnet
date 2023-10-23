@@ -120,8 +120,8 @@ public class BacnetClient : IDisposable
         }
     }
 
-    public BacnetClient(int port = DefaultUdpPort, int timeout = DefaultTimeout, int retries = DefaultRetries)
-        : this(new BacnetIpUdpProtocolTransport(port), timeout, retries)
+    public BacnetClient(int port = DefaultUdpPort, int timeout = DefaultTimeout, int retries = DefaultRetries, ITransportMonitor transportMonitor = null)
+        : this(new BacnetIpUdpProtocolTransport(port, transportMonitor: transportMonitor), timeout, retries)
     {
     }
 
