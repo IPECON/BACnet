@@ -325,20 +325,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
     public int Send(byte[] buffer, int dataLength, IPEndPoint ep)
     {
-        // return _exclusiveConn.Send(buffer, data_length, ep);
-        ThreadPool.QueueUserWorkItem(o =>
-        {
-            try
-            {
-                _exclusiveConn.Send(buffer, dataLength, ep);
-            }
-            catch
-            {
-                    // not much you can do about at this point
-                }
-        }, null);
-
-        return dataLength;
+        return _exclusiveConn.Send(buffer, dataLength, ep);
     }
 
     public override int Send(byte[] buffer, int offset, int dataLength, BacnetAddress address, bool waitForTransmission, int timeout)
@@ -354,15 +341,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         //create end point
         Convert(address, out var ep);
 
-        try
-        {
-            // broadcasts are transported from our local unicast socket also
-            return _exclusiveConn.Send(buffer, fullLength, ep);
-        }
-        catch
-        {
-            return 0;
-        }
+        return _exclusiveConn.Send(buffer, fullLength, ep);
     }
 
     public static void Convert(IPEndPoint ep, out BacnetAddress address)
