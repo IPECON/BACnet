@@ -64,10 +64,20 @@ public class BacnetAddress : ASN1.IEncode
 
     public override string ToString()
     {
-        return ToString(type);
+        if (RoutedSource != null)
+        {
+            return $"{RoutedSource} via {ToString(adr, type)}";
+        }
+
+        if (RoutedDestination != null)
+        {
+            return $"{RoutedDestination} via {ToString(adr, type)}";
+        }
+
+        return ToString(adr, type);
     }
 
-    public string ToString(BacnetAddressTypes addressType)
+    public static string ToString(byte[] adr, BacnetAddressTypes addressType)
     {
         while (true)
         {
