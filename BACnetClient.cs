@@ -55,7 +55,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public const int DefaultRetries = 3;
 
     public IBacnetTransport Transport { get; }
-    public BacnetMaxAdpu MaxApduLength => Transport.MaxAdpuLength;
+    public BacnetMaxAdpu MaxApduLength => Transport.MaxApduLength;
     public ushort VendorId { get; set; } = 260;
     public int Timeout { get; set; }
     public int TransmitTimeout { get; set; } = 30000;
@@ -1231,7 +1231,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public int GetMaxApdu()
     {
-        return GetMaxApdu(Transport.MaxAdpuLength);
+        return GetMaxApdu(Transport.MaxApduLength);
     }
     // DAL
     public int GetMaxApdu(BacnetMaxAdpu apduLength)

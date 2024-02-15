@@ -6,7 +6,7 @@ public abstract class BacnetTransportBase : IBacnetTransport
     public int HeaderLength { get; protected set; }
     public int MaxBufferLength { get; protected set; }
     public BacnetAddressTypes Type { get; protected set; }
-    public BacnetMaxAdpu MaxAdpuLength { get; protected set; }
+    public BacnetMaxAdpu MaxApduLength { get; protected set; }
     public byte MaxInfoFrames { get; set; } = 0xFF;
 
     protected BacnetTransportBase()

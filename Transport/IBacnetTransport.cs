@@ -6,7 +6,7 @@ public interface IBacnetTransport : IDisposable
     int HeaderLength { get; }
     int MaxBufferLength { get; }
     BacnetAddressTypes Type { get; }
-    BacnetMaxAdpu MaxAdpuLength { get; }
+    BacnetMaxAdpu MaxApduLength { get; }
 
     void Start();
     BacnetAddress GetBroadcastAddress();

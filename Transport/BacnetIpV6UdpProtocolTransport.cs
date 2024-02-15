@@ -51,7 +51,7 @@ public class BacnetIpV6UdpProtocolTransport : BacnetTransportBase
         SharedPort = port;
         MaxBufferLength = maxPayload;
         Type = BacnetAddressTypes.IPV6;
-        MaxAdpuLength = BVLCV6.BVLC_MAX_APDU;
+        MaxApduLength = BVLCV6.BVLC_MAX_APDU;
 
         // Two frames type, unicast with 10 bytes or broadcast with 7 bytes
         // Here it's the biggest header, resize will be done after, if needed

@@ -48,7 +48,7 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
     {
         _deviceName = friendlydeviceName;
         Type = BacnetAddressTypes.Ethernet;
-        MaxAdpuLength = BacnetMaxAdpu.MAX_APDU1476;
+        MaxApduLength = BacnetMaxAdpu.MAX_APDU1476;
         HeaderLength = 6 + 6 + 2 + 3;
         MaxBufferLength = 1500;
     }

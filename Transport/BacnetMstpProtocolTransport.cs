@@ -86,7 +86,7 @@ public class BacnetMstpProtocolTransport : BacnetTransportBase
         Type = BacnetAddressTypes.MSTP;
         HeaderLength = MSTP.MSTP_HEADER_LENGTH;
         MaxBufferLength = 502;
-        MaxAdpuLength = MSTP.MSTP_MAX_APDU;
+        MaxApduLength = MSTP.MSTP_MAX_APDU;
         MaxInfoFrames = maxInfoFrames;
 
         _localBuffer = new byte[MaxBufferLength];

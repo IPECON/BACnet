@@ -56,7 +56,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         MaxBufferLength = maxPayload;
         Type = BacnetAddressTypes.IP;
         HeaderLength = BVLC.BVLC_HEADER_LENGTH;
-        MaxAdpuLength = BVLC.BVLC_MAX_APDU;
+        MaxApduLength = BVLC.BVLC_MAX_APDU;
 
         _exclusivePort = useExclusivePort;
         _dontFragment = dontFragment;

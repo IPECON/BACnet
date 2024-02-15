@@ -23,7 +23,7 @@ public class BacnetPtpProtocolTransport : BacnetTransportBase
         Type = BacnetAddressTypes.PTP;
         HeaderLength = PTP.PTP_HEADER_LENGTH;
         MaxBufferLength = 502;
-        MaxAdpuLength = PTP.PTP_MAX_APDU;
+        MaxApduLength = PTP.PTP_MAX_APDU;
     }
 
     public BacnetPtpProtocolTransport(string portName, int baudRate, bool isServer)
