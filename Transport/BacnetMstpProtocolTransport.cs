@@ -355,7 +355,7 @@ public class BacnetMstpProtocolTransport : BacnetTransportBase
                         }
                         catch (Exception ex)
                         {
-                            Log.Error("Exception in MessageRecieved event", ex);
+                            Log.Error("Exception in MessageReceived event", ex);
                         }
                     }
 
@@ -487,7 +487,7 @@ public class BacnetMstpProtocolTransport : BacnetTransportBase
                                 }
                                 catch (Exception ex)
                                 {
-                                    Log.Error("Exception in MessageRecieved event", ex);
+                                    Log.Error("Exception in MessageReceived event", ex);
                                 }
                                 if (frameType == BacnetMstpFrameTypes.FRAME_TYPE_BACNET_DATA_EXPECTING_REPLY)
                                 {

@@ -159,7 +159,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public void Start()
     {
         Transport.Start();
-        Transport.MessageRecieved += OnRecieve;
+        Transport.MessageReceived += OnRecieve;
         Log.Info("Started communication");
     }
 

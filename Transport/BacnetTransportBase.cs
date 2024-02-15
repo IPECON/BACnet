@@ -25,11 +25,11 @@ public abstract class BacnetTransportBase : IBacnetTransport
 
     public abstract int Send(byte[] buffer, int offset, int dataLength, BacnetAddress address, bool waitForTransmission, int timeout);
 
-    public event MessageRecievedHandler MessageRecieved;
+    public event MessageRecievedHandler MessageReceived;
 
     protected void InvokeMessageRecieved(byte[] buffer, int offset, int msgLength, BacnetAddress remoteAddress)
     {
-        MessageRecieved?.Invoke(this, buffer, offset, msgLength, remoteAddress);
+        MessageReceived?.Invoke(this, buffer, offset, msgLength, remoteAddress);
     }
 
     public abstract void Dispose();

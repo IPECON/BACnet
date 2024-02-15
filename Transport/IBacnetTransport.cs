@@ -13,5 +13,5 @@ public interface IBacnetTransport : IDisposable
     bool WaitForAllTransmits(int timeout);
     int Send(byte[] buffer, int offset, int dataLength, BacnetAddress address, bool waitForTransmission, int timeout);
 
-    event MessageRecievedHandler MessageRecieved;
+    event MessageRecievedHandler MessageReceived;
 }
