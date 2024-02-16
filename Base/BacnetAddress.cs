@@ -49,7 +49,34 @@ public class BacnetAddress : ASN1.IEncode
             case BacnetAddressTypes.Ethernet:
                 adr = PhysicalAddress.Parse(address).GetAddressBytes();
                 break;
-
+            case BacnetAddressTypes.SecureConnect:
+                if (address.Contains("."))
+                {
+                    // dotted decimal
+                    string[] parts = address.Split('.');
+                    if (parts.Length != 6) throw new Exception("Not a valid dotted decimal VMAC: " + address);
+                    for (int i = 0; i < 6; i++) adr[i] = byte.Parse(parts[i]);
+                }
+                else if (address.Contains(":"))
+                {
+                    // hex with colons
+                    string[] parts = address.Split(':');
+                    if (parts.Length != 6) throw new Exception("Not a valid colon-separated hex VMAC: " + address);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        adr[i] = byte.Parse(parts[i], NumberStyles.HexNumber);
+                    }
+                }
+                else
+                {
+                    // straight hex
+                    if (address.Length != 12) throw new Exception("Not a valid hex VMAC: " + address);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        adr[i] = byte.Parse(address.Substring(i * 2, 2), NumberStyles.HexNumber);
+                    }
+                }
+                break;
             default:
                 throw new NotSupportedException("String format is not supported for address type " + type);
         }
@@ -104,6 +131,10 @@ public class BacnetAddress : ASN1.IEncode
                         ? $"{new IPAddress(adr.Take(16).ToArray())}:{(adr[16] << 8) | adr[17]}"
                         : "[::]";
 
+                case BacnetAddressTypes.SecureConnect:
+                    return adr != null && adr.Length == 6
+                        ? $"{adr[0]:X2}:{adr[1]:X2}:{adr[2]:X2}:{adr[3]:X2}:{adr[4]:X2}:{adr[5]:X2}"
+                        : "00:00:00:00:00:00";
                 default: // Routed @ are always like this, NPDU do not contains the MAC type, only the lenght
                     if (adr == null || adr.Length == 0)
                         return "?";
