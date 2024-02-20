@@ -37,7 +37,7 @@ public class BacnetDate : ASN1.IEncode, ASN1.IDecode
 
     public BacnetDate(DateTime? dateTime)
     {
-        if (dateTime == null || dateTime == DateTime.MinValue)
+        if (dateTime == null || dateTime == DateTime.MinValue || dateTime == new DateTime(1, 1, 1))
         {
             Year = 0xFF;
             Month = 0xFF;
