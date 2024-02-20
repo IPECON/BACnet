@@ -18,6 +18,19 @@
             Services.EncodeTimeSync(buffer, dateTime);
         }
 
+        public void CreateSynchronizeTime(EncodeBuffer buffer, BacnetAddress adr, BacnetDate bacnetDate, BacnetTime bacnetTime, bool isUtc, BacnetAddress source = null)
+        {
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr, source);
+            APDU.EncodeUnconfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, isUtc
+                ? BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_UTC_TIME_SYNCHRONIZATION
+                : BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_TIME_SYNCHRONIZATION);
+
+            ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE, false, 4);
+            bacnetDate.Encode(buffer);
+            ASN1.encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
+            bacnetTime.Encode(buffer);
+        }
+
         public void CreateWriteFileRequest(EncodeBuffer buffer, BacnetAddress adr, BacnetObjectId objectId, int position, int count, byte[] fileBuffer, bool waitForTransmit, byte invokeId = 0)
         {
             NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage | BacnetNpduControls.ExpectingReply, adr.RoutedDestination, adr.RoutedSource);

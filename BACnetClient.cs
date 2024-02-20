@@ -1228,6 +1228,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         Transport.Send(buffer.buffer, Transport.HeaderLength, buffer.offset - Transport.HeaderLength, adr, false, 0);
     }
 
+    public void SynchronizeTime(BacnetAddress adr, BacnetDate bacnetDate, BacnetTime bacnetTime, bool isUtc, BacnetAddress source)
+    {
+        var buffer = GetEncodeBuffer(Transport.HeaderLength);
+        _messageFactory.CreateSynchronizeTime(buffer, adr, bacnetDate, bacnetTime, isUtc, source);
+        Transport.Send(buffer.buffer, Transport.HeaderLength, buffer.offset - Transport.HeaderLength, adr, false, 0);
+    }
 
     public int GetMaxApdu()
     {
