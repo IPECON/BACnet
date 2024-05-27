@@ -34,7 +34,7 @@ public class APDU
         BacnetMaxAdpu maxAdpu, byte invokeId, byte sequenceNumber = 0, byte proposedWindowSize = 0)
     {
         buffer.buffer[buffer.offset++] = (byte)type;
-        buffer.buffer[buffer.offset++] = (byte)((byte)maxSegments | (byte)maxAdpu);
+        buffer.buffer[buffer.offset++] = (byte)((byte)maxSegments << 4 | (byte)maxAdpu);
         buffer.buffer[buffer.offset++] = invokeId;
 
         if ((type & BacnetPduTypes.SEGMENTED_MESSAGE) > 0)
