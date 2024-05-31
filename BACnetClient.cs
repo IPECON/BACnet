@@ -41,9 +41,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public ILog Log { get; set; } = LogManager.GetLogger<BacnetClient>();
     public event BvlcResultReceiveHandler OnBvlcResultReceived;
 
-    /// <summary>
-    /// Used as the number of tentatives
-    /// </summary>
     public int Retries
     {
         get => _retries;
@@ -221,7 +218,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnWritePropertyRequest(this, address, invokeId, objectId, value, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     //SendConfirmedServiceReject(adr, invokeId, BacnetRejectReason.OTHER); 
@@ -234,7 +230,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnReadPropertyMultipleRequest(this, address, invokeId, properties, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode DecodeReadPropertyMultiple");
@@ -246,7 +241,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnWritePropertyMultipleRequest(this, address, invokeId, objectId, values, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode DecodeWritePropertyMultiple");
@@ -258,7 +252,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnCOVNotification(this, address, invokeId, subscriberProcessIdentifier, initiatingDeviceIdentifier, monitoredObjectIdentifier, timeRemaining, true, values, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode COVNotify");
@@ -270,7 +263,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnAtomicWriteFileRequest(this, address, invokeId, isStream, objectId, position, blockCount, blocks, counts, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode AtomicWriteFile");
@@ -282,7 +274,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnAtomicReadFileRequest(this, address, invokeId, isStream, objectId, position, count, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode AtomicReadFile");
@@ -294,7 +285,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnSubscribeCOV(this, address, invokeId, subscriberProcessIdentifier, monitoredObjectIdentifier, cancellationRequest, issueConfirmedNotifications, lifetime, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode SubscribeCOV");
@@ -306,7 +296,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnSubscribeCOVProperty(this, address, invokeId, subscriberProcessIdentifier, monitoredObjectIdentifier, monitoredProperty, cancellationRequest, issueConfirmedNotifications, lifetime, covIncrement, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode SubscribeCOVProperty");
@@ -314,12 +303,10 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             }
             else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_DEVICE_COMMUNICATION_CONTROL && OnDeviceCommunicationControl != null)
             {
-                // DAL
                 if (Services.DecodeDeviceCommunicationControl(buffer, offset, length, out var timeDuration, out var enableDisable, out var password) >= 0)
                     OnDeviceCommunicationControl(this, address, invokeId, timeDuration, enableDisable, password, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode DeviceCommunicationControl");
@@ -327,12 +314,10 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             }
             else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_REINITIALIZE_DEVICE && OnReinitializedDevice != null)
             {
-                // DAL
                 if (Services.DecodeReinitializeDevice(buffer, offset, length, out var state, out var password) >= 0)
                     OnReinitializedDevice(this, address, invokeId, state, password, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode ReinitializeDevice");
@@ -346,7 +331,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 }
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode confirmed Event/Alarm Notification");
@@ -358,7 +342,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnReadRange(this, address, invokeId, objectId, property, requestType, position, time, count, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode ReadRange");
@@ -370,7 +353,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnCreateObjectRequest(this, address, invokeId, objectId, values, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode CreateObject");
@@ -382,7 +364,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                     OnDeleteObjectRequest(this, address, invokeId, objectId, maxSegments);
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode DecodeDeleteObject");
@@ -413,7 +394,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             }
             else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_GET_EVENT_INFORMATION && OnGetAlarmSummaryOrEventInformation != null)
             {
-                // DAL
                 BacnetObjectId objectId = default;
                 objectId.Type = BacnetObjectTypes.MAX_BACNET_OBJECT_TYPE;
                 if (Services.DecodeAlarmSummaryOrEventRequest(buffer, offset, length, true, ref objectId) >= 0)
@@ -422,7 +402,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 }
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode GetEventInformation");
@@ -430,14 +409,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             }
             else if (service == BacnetConfirmedServices.SERVICE_CONFIRMED_ACKNOWLEDGE_ALARM && OnAlarmAcknowledge != null)
             {
-                // DAL
                 if (Services.DecodeAlarmAcknowledge(buffer, offset, length, out uint ackProcessIdentifier, out BacnetObjectId eventObjectIdentifier, out uint eventStateAcked, out string ackSource, out BacnetGenericTime eventTimeStamp, out BacnetGenericTime ackTimeStamp) >= 0)
                 {
                     OnAlarmAcknowledge(this, address, invokeId, ackProcessIdentifier, eventObjectIdentifier, eventStateAcked, ackSource, eventTimeStamp, ackTimeStamp);
                 }
                 else
                 {
-                    // DAL
                     SendAbort(address, invokeId, BacnetAbortReason.OTHER);
                     //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
                     Log.Warn("Couldn't decode AlarmAcknowledge");
@@ -445,14 +422,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             }
             else
             {
-                // DAL
                 SendConfirmedServiceReject(address, invokeId, BacnetRejectReason.RECOGNIZED_SERVICE); // should be unrecognized but this is the way it was spelled..
                 Log.Debug($"Confirmed service not handled: {service}");
             }
         }
         catch (Exception ex)
         {
-            // DAL
             SendAbort(address, invokeId, BacnetAbortReason.OTHER);
             //ErrorResponse(address, service, invokeId, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_ABORT_OTHER);
             Log.Error("Error in ProcessConfirmedServiceRequest", ex);
@@ -496,7 +471,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 else
                     Log.Warn("Couldn't decode WhoIsBroadcast");
             }
-            // added by thamersalek
             else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_WHO_HAS && OnWhoHas != null)
             {
                 if (Services.DecodeWhoHasBroadcast(buffer, offset, length, out var lowLimit, out var highLimit, out var objId, out var objName) >= 0)
@@ -525,7 +499,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 else
                     Log.Warn("Couldn't decode TimeSynchronize");
             }
-            else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_EVENT_NOTIFICATION && OnEventNotify != null) // F. Chaxel
+            else if (service == BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_EVENT_NOTIFICATION && OnEventNotify != null)
             {
                 if (Services.DecodeEventNotifyData(buffer, offset, length, out var eventData) >= 0)
                     OnEventNotify(this, address, 0, eventData, false);
@@ -851,7 +825,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         }
     }
 
-    // DAL
     public void SendNetworkMessage(BacnetAddress adr, byte[] buffer, int bufLen, BacnetNetworkMessageTypes messageType, ushort vendorId = 0)
     {
         if (adr == null)
@@ -863,6 +836,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         b.Add(buffer, bufLen);
         Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, adr, false, 0);
     }
+
     public void SendIAmRouterToNetwork(ushort[] networks)
     {
         var b = GetEncodeBuffer(0);
@@ -885,6 +859,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         }
         SendNetworkMessage(adr, b.buffer, b.offset, BacnetNetworkMessageTypes.NETWORK_MESSAGE_INIT_RT_TABLE_ACK);
     }
+
     public void SendRejectToNetwork(BacnetAddress adr, ushort[] networks)
     {
         var b = GetEncodeBuffer(0);
@@ -895,6 +870,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         }
         SendNetworkMessage(adr, b.buffer, b.offset, BacnetNetworkMessageTypes.NETWORK_MESSAGE_REJECT_MESSAGE_TO_NETWORK);
     }
+
     public delegate void NetworkMessageHandler(BacnetClient sender, BacnetAddress adr, BacnetNpduControls npduFunction, BacnetNetworkMessageTypes npduMessageType, byte[] buffer, int offset, int messageLength);
     public event NetworkMessageHandler OnNetworkMessage;
     public delegate void WhoIsRouterToNetworkHandler(BacnetClient sender, BacnetAddress adr, BacnetNpduControls npduFunction, byte[] buffer, int offset, int messageLength);
@@ -977,10 +953,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             // parse
             var npduLen = NPDU.Decode(buffer, offset, out var npduFunction, out var destination, out var source, out _, out var npduMessageType, out _);
 
-            // Modif FC
             remoteAddress.RoutedSource = source;
-
-            // DAL
             remoteAddress.RoutedDestination = destination;
 
             if (npduLen <= 0)
@@ -995,7 +968,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             if (npduFunction.HasFlag(BacnetNpduControls.NetworkLayerMessage))
             {
                 Log.Info("Network Layer message received");
-                // DAL
                 ProcessNetworkMessage(remoteAddress, npduFunction, npduMessageType, buffer, offset, msgLength);
                 return;
             }
@@ -1012,7 +984,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         }
     }
 
-    // Modif FC
     public void RegisterAsForeignDevice(string bbmdIp, short ttl, int port = DefaultUdpPort)
     {
         try
@@ -1076,7 +1047,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         {
             Log.Error("Error on Sending Whois to remote BBMD (Wrong Transport, not IP ?)", ex);
         }
-
     }
 
     public void WhoIs(int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null)
@@ -1189,7 +1159,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public void SendAbort(BacnetAddress adr, byte invokeId, BacnetAbortReason reason)
     {
-        // DAL
         Log.Debug($"Sending Service reject: {reason}");
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
@@ -1219,7 +1188,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         return GetMaxApdu(Transport.MaxApduLength);
     }
-    // DAL
+
     public int GetMaxApdu(BacnetMaxAdpu apduLength)
     {
         int maxAPDU;
@@ -1413,7 +1382,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         return ret;
     }
 
-    // Fc
     public void EndReadRangeRequest(IAsyncResult result, out byte[] trendbuffer, out uint itemCount, out Exception ex)
     {
         var res = (BacnetAsyncResult)result;
@@ -1434,7 +1402,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         res.Dispose();
     }
 
-    // Fc
     public void ReadRangeRequest(BacnetAddress adr, BacnetObjectId objectId, DateTime readFrom, ref uint quantity, out byte[] range, byte invokeId = 0)
     {
         ReadRangeRequestCore(BacnetReadRangeRequestTypes.RR_BY_TIME, adr, objectId, 1, readFrom, ref quantity, out range, invokeId);
@@ -1531,7 +1498,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         res.Dispose();
     }
 
-    // DAL
     public void SendConfirmedEventNotificationRequest(BacnetAddress adr, BacnetEventNotificationData eventData, byte invokeId = 0, BacnetAddress source = null, int? maxRetries = null, int? timeout = null)
     {
         maxRetries ??= Retries;
@@ -1554,7 +1520,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         throw OperationTimedOut();
     }
 
-    // DAL
     public IAsyncResult BeginSendConfirmedEventNotificationRequest(BacnetAddress adr, BacnetEventNotificationData eventData, bool waitForTransmit, byte invokeId = 0, BacnetAddress source = null)
     {
         Log.Debug($"Sending Confirmed Event Notification {eventData.eventType} {eventData.eventObjectIdentifier}");
@@ -1571,7 +1536,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         return ret;
     }
 
-    // DAL
     public void EndSendConfirmedEventNotificationRequest(IAsyncResult result, out Exception ex)
     {
         var res = (BacnetAsyncResult)result;
@@ -1974,7 +1938,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             : BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST;
     }
 
-    // By Christopher Günter
     public void CreateObjectRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList = null, byte invokeId = 0, int? maxRetries = null, int? timeout = null)
     {
         maxRetries ??= Retries;
@@ -2158,7 +2121,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         res.Dispose();
     }
 
-    // Fc
     // Read or Write without APDU Data encoding nor Decoding (just Request type, Object id and Property id)
     // Data is given by the caller starting with the Tag 3 (or maybe another one), and ending with it
     // return buffer start also with the Tag 3
@@ -2184,7 +2146,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         throw OperationTimedOut();
     }
 
-    // Fc
     public IAsyncResult BeginRawEncodedDecodedPropertyConfirmedRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, BacnetConfirmedServices serviceId, byte[] inOutBuffer, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending RawEncodedRequest");
@@ -2205,7 +2166,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         return ret;
     }
 
-    // Fc
     public void EndRawEncodedDecodedPropertyConfirmedRequest(IAsyncResult result, BacnetConfirmedServices serviceId, out byte[] inOutBuffer, out Exception ex)
     {
         var res = (BacnetAsyncResult)result;
@@ -2598,51 +2558,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         res.Dispose();
     }
 
-    public static byte GetSegmentsCount(BacnetMaxSegments maxSegments)
-    {
-        switch (maxSegments)
-        {
-            case BacnetMaxSegments.MAX_SEG0:
-                return 0;
-            case BacnetMaxSegments.MAX_SEG2:
-                return 2;
-            case BacnetMaxSegments.MAX_SEG4:
-                return 4;
-            case BacnetMaxSegments.MAX_SEG8:
-                return 8;
-            case BacnetMaxSegments.MAX_SEG16:
-                return 16;
-            case BacnetMaxSegments.MAX_SEG32:
-                return 32;
-            case BacnetMaxSegments.MAX_SEG64:
-                return 64;
-            case BacnetMaxSegments.MAX_SEG65:
-                return 0xFF;
-            default:
-                throw new Exception("Not an option");
-        }
-    }
-
-    public static BacnetMaxSegments GetSegmentsCount(byte maxSegments)
-    {
-        if (maxSegments == 0)
-            return BacnetMaxSegments.MAX_SEG0;
-        if (maxSegments <= 2)
-            return BacnetMaxSegments.MAX_SEG2;
-        if (maxSegments <= 4)
-            return BacnetMaxSegments.MAX_SEG4;
-        if (maxSegments <= 8)
-            return BacnetMaxSegments.MAX_SEG8;
-        if (maxSegments <= 16)
-            return BacnetMaxSegments.MAX_SEG16;
-        if (maxSegments <= 32)
-            return BacnetMaxSegments.MAX_SEG32;
-        if (maxSegments <= 64)
-            return BacnetMaxSegments.MAX_SEG64;
-
-        return BacnetMaxSegments.MAX_SEG65;
-    }
-
     public Segmentation GetSegmentBuffer(BacnetMaxSegments maxSegments)
     {
         if (maxSegments == BacnetMaxSegments.MAX_SEG0)
@@ -2651,7 +2566,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         return new Segmentation
         {
             buffer = GetEncodeBuffer(Transport.HeaderLength),
-            max_segments = GetSegmentsCount(maxSegments),
+            max_segments = maxSegments.ToByte(),
             window_size = ProposedWindowSize
         };
     }
@@ -2778,7 +2693,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             if (segmentation == null)
             {
                 Log.Info("Segmentation denied");
-                // DAL
                 SendAbort(adr, invokeId, BacnetAbortReason.SEGMENTATION_NOT_SUPPORTED);
                 //ErrorResponse(adr, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_APDU_TOO_LONG);
                 buffer.result = EncodeResult.Good;     //don't continue the segmentation
@@ -2791,7 +2705,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 if (segmentation.max_segments != 0xFF && segmentation.buffer.offset > segmentation.max_segments * (GetMaxApdu() - 5))      //5 is adpu header
                 {
                     Log.Info("Too much segmenation");
-                    // DAL
                     SendAbort(adr, invokeId, BacnetAbortReason.APDU_TOO_LONG);
                     //ErrorResponse(adr, service, invokeId, BacnetErrorClasses.ERROR_CLASS_SERVICES, BacnetErrorCodes.ERROR_CODE_ABORT_APDU_TOO_LONG);
                     buffer.result = EncodeResult.Good;     //don't continue the segmentation
