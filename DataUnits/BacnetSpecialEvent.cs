@@ -12,8 +12,10 @@ BACnetSpecialEvent ::= SEQUENCE {
 */
 public class BacnetSpecialEvent : ASN1.IEncode, ASN1.IDecode
 {
+#nullable enable
     public BacnetCalendarEntry? CalendarEntry { get; set; }
     public BacnetObjectId? CalendarReference { get; set; }
+#nullable disable
     public List<BacnetTimeValue> ListOfTimeValues { get; set; }
     public uint Priority { get; set; }
 

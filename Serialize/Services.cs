@@ -74,9 +74,10 @@ public class Services
         /* objectName */
         ASN1.encode_application_character_string(buffer, objectName);
     }
-
+#nullable enable
     public static int DecodeIHaveBroadcast(byte[] buffer, int offset, int apduLen, out BacnetIHaveData? bacnetIHaveData)
     {
+#nullable disable
         bacnetIHaveData = null;
 
         BacnetObjectId deviceId;
