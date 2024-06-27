@@ -11,8 +11,8 @@ public delegate void MessageRecievedHandler(IBacnetTransport sender, byte[] buff
 /// </summary>
 public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 {
-    private int _retries;
-    private readonly InvokeIdGenerator _invokeId = new();
+    private int mRetries;
+    private readonly InvokeIdGenerator mInvokeId = new();
 
     private readonly LastSegmentAck _lastSegmentAck = new();
 
@@ -43,8 +43,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public int Retries
     {
-        get => _retries;
-        set => _retries = Math.Max(1, value);
+        get => mRetries;
+        set => mRetries = Math.Max(1, value);
     }
 
     public class Segmentation
@@ -1257,7 +1257,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending AtomicWriteFileRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateWriteFileRequest(buffer, adr, objectId, position, count, fileBuffer, waitForTransmit, invokeId);
@@ -1294,7 +1294,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending AtomicReadFileRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
@@ -1370,7 +1370,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending ReadRangeRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         //encode
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
@@ -1476,7 +1476,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending SubscribeCOVRequest {objectId}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateSubscribeCOVRequest(buffer, adr, objectId, subscribeId, cancel, issueConfirmedNotifications, lifetime, waitForTransmit, invokeId);
@@ -1524,7 +1524,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending Confirmed Event Notification {eventData.eventType} {eventData.eventObjectIdentifier}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateSendConfirmedEventNotificationRequest(buffer, adr, eventData, waitForTransmit, invokeId, source);
@@ -1572,7 +1572,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending SubscribePropertyRequest {objectId}.{monitoredProperty}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateSubscribePropertyRequest(buffer, adr, objectId, monitoredProperty, subscribeId, cancel, issueConfirmedNotifications, lifetime, waitForTransmit, invokeId);
@@ -1644,7 +1644,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending ReadPropertyRequest {objectId} {propertyId}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateReadPropertyRequest(buffer, address, objectId, propertyId, waitForTransmit, invokeId, arrayIndex);
@@ -1726,7 +1726,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending WritePropertyRequest {objectId} {propertyId}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateWritePropertyRequest(buffer, adr, objectId, propertyId, valueList, waitForTransmit, arrayIndex, invokeId, writePriority);
@@ -1741,7 +1741,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public IAsyncResult BeginWritePropertyMultipleRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug($"Sending WritePropertyMultipleRequest {objectId}");
-        if (invokeId == 0) invokeId = _invokeId.GetNext();
+        if (invokeId == 0) invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateWritePropertyMultipleRequest(buffer, adr, objectId, valueList, waitForTransmit, invokeId);
@@ -1792,7 +1792,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         Log.Debug($"Sending WritePropertyMultipleRequest {objectIds}");
 
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateWritePropertyMultipleRequest(buffer, adr, valueList, waitForTransmit, invokeId);
@@ -1858,7 +1858,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         var propertyIds = string.Join(", ", propertyIdAndArrayIndex.Select(v => (BacnetPropertyIds)v.propertyIdentifier));
         Log.Debug($"Sending ReadPropertyMultipleRequest {objectId} {propertyIds}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateReadPropertyMultipleRequest(buffer, adr, objectId, propertyIdAndArrayIndex, waitForTransmit, invokeId);
@@ -1898,7 +1898,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         var objectIds = string.Join(", ", properties.Select(v => v.objectIdentifier));
         Log.Debug($"Sending ReadPropertyMultipleRequest {objectIds}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateReadPropertyMultipleRequest(buffer, adr, properties, waitForTransmit, invokeId);
@@ -1963,7 +1963,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public IAsyncResult BeginCreateObjectRequest(BacnetAddress adr, BacnetObjectId objectId, ICollection<BacnetPropertyValue> valueList, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending CreateObjectRequest");
-        if (invokeId == 0) invokeId = _invokeId.GetNext();
+        if (invokeId == 0) invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
@@ -2011,7 +2011,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public IAsyncResult BeginDeleteObjectRequest(BacnetAddress adr, BacnetObjectId objectId, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending DeleteObjectRequest");
-        if (invokeId == 0) invokeId = _invokeId.GetNext();
+        if (invokeId == 0) invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
 
@@ -2083,7 +2083,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending RemoveListElementRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateRemoveListElementRequest(buffer, adr, objectId, reference, valueList, waitForTransmit, invokeId);
@@ -2099,7 +2099,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending AddListElementRequest {objectId} {(BacnetPropertyIds)reference.propertyIdentifier}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateAddListElementRequest(buffer, adr, objectId, reference, valueList, waitForTransmit, invokeId);
@@ -2150,7 +2150,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending RawEncodedRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateRawEncodedDecodedPropertyConfirmedRequest(buffer, adr, objectId, propertyId, serviceId, inOutBuffer, waitForTransmit, invokeId);
@@ -2232,7 +2232,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending DeviceCommunicationControlRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateDeviceCommunicationControlRequest(buffer, adr, timeDuration, enableDisable, password, waitForTransmit, invokeId);
@@ -2310,7 +2310,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending Alarm summary request");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateGetAlarmSummaryOrEventRequest(buffer, adr, getEvent, alarms, waitForTransmit, invokeId);
@@ -2386,7 +2386,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending AlarmAcknowledgement");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateAlarmAcknowledgement(buffer, adr, objId, eventState, ackText, evTimeStamp, ackTimeStamp, waitForTransmit, invokeId, ackProcessIdentifier);
@@ -2433,7 +2433,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug("Sending ReinitializeRequest");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateReinitializeRequest(buffer, adr, state, password, waitForTransmit, invokeId);
@@ -2458,7 +2458,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public IAsyncResult BeginConfirmedNotify(BacnetAddress adr, uint subscriberProcessIdentifier, uint initiatingDeviceIdentifier, BacnetObjectId monitoredObjectIdentifier, uint timeRemaining, IList<BacnetPropertyValue> values, bool waitForTransmit, byte invokeId = 0)
     {
         Log.Debug("Sending Notify (confirmed)");
-        if (invokeId == 0) invokeId = _invokeId.GetNext();
+        if (invokeId == 0) invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateConfirmedNotify(buffer, adr, subscriberProcessIdentifier, initiatingDeviceIdentifier, monitoredObjectIdentifier, timeRemaining, values, waitForTransmit, invokeId);
@@ -2536,7 +2536,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Debug($"Sending {ToTitleCase(operation)} {objectId}");
         if (invokeId == 0)
-            invokeId = _invokeId.GetNext();
+            invokeId = mInvokeId.GetNext();
 
         var buffer = GetEncodeBuffer(Transport.HeaderLength);
         _messageFactory.CreateLifeSafetyOperationRequest(buffer, address, objectId, processId, requestingSrc, operation, waitForTransmit, invokeId);
