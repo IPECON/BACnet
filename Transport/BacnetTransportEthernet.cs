@@ -93,7 +93,7 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
             try
             {
                 var device = devices.FirstOrDefault(dev => dev.Interface.FriendlyName == _deviceName);
-                device?.Open(DeviceMode.Normal, 1000); // 1000 ms read timeout
+                device?.Open(); // 1000 ms read timeout
                 return device;
             }
             catch
@@ -103,7 +103,7 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
         }
         foreach (var device in devices)
         {
-            device.Open(DeviceMode.Normal, 1000); // 1000 ms read timeout
+            device.Open(); // 1000 ms read timeout
             if (device.LinkType == LinkLayers.Ethernet
                 && device.Interface.MacAddress != null)
                 return device;
@@ -120,9 +120,9 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
         {
             try
             {
-                var packet = _device.GetNextPacket();
-                if (packet != null)
-                    OnPacketArrival(packet);
+                var packetStatus = _device.GetNextPacket(out var packet);
+                if (packetStatus != GetPacketStatus.Error)
+                    OnPacketArrival(new RawCapture(packet.Device, packet.Header, packet.Data));
                 else
                     Thread.Sleep(10); // NonBlockingMode, we need to slow the overhead
             }
@@ -133,7 +133,7 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
         }
     }
 
-    private bool _isOutboundPacket(IList<byte> buffer, int offset)
+    private bool IsOutboundPacket(IList<byte> buffer, int offset)
     {
         // check to see if the source mac 100%
         // matches the device mac address of the local device
@@ -165,7 +165,7 @@ internal class BacnetEthernetProtocolTransport : BacnetTransportBase
 
         // Got frames send by me, not for me, not broadcast
         var dest = Mac(buffer, offset);
-        if (!_isOutboundPacket(dest, 0) && dest[0] != 255)
+        if (!IsOutboundPacket(dest, 0) && dest[0] != 255)
             return;
 
         offset += 6;
