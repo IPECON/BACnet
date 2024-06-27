@@ -1,4 +1,6 @@
-﻿namespace System.IO.BACnet.Storage;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace System.IO.BACnet.Storage;
 
 /// <summary>
 /// This is a basic example of a BACNet storage. This one is XML based. It has no fancy optimizing or anything.
@@ -363,11 +365,14 @@ public class DeviceStorage
     /// Store the class, as XML file
     /// </summary>
     /// <param name="path"></param>
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DeviceStorage))]
     public void Save(string path)
     {
+#pragma warning disable IL2026 // RequiresUnreferencedCodeAttribute can break functionality when trimming application code.
         var s = new XmlSerializer(typeof(DeviceStorage));
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
         s.Serialize(fs, this);
+#pragma warning restore IL2026
     }
 
     /// <summary>
@@ -376,6 +381,7 @@ public class DeviceStorage
     /// <param name="path">Embedded or external file</param>
     /// <param name="deviceId">Optional deviceId other than the one in the Xml file</param>
     /// <returns></returns>
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DeviceStorage))]
     public static DeviceStorage Load(string path, uint? deviceId = null)
     {
         StreamReader textStreamReader;
@@ -395,13 +401,13 @@ public class DeviceStorage
 
             textStreamReader = new StreamReader(path);
         }
-
+#pragma warning disable IL2026 // RequiresUnreferencedCodeAttribute can break functionality when trimming application code.
         var s = new XmlSerializer(typeof(DeviceStorage));
 
         using (textStreamReader)
         {
             var ret = (DeviceStorage)s.Deserialize(textStreamReader);
-
+#pragma warning restore IL2026
             //set device_id
             var obj = ret.FindObject(BacnetObjectTypes.OBJECT_DEVICE);
             if (obj != null)
