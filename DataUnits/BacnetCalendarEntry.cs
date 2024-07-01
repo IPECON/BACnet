@@ -9,11 +9,9 @@ BACnetCalendarEntry ::= CHOICE {
 */
 public class BacnetCalendarEntry : ASN1.IEncode, ASN1.IDecode
 {
-#nullable enable
     public BacnetDate? Date { get; set; }
     public BacnetDateRange? DateRange { get; set; }
     public BacnetWeekNDay? WeekNDay { get; set; }
-#nullable disable
 
     public BacnetCalendarEntry()
     {
