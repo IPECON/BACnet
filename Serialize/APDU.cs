@@ -184,7 +184,7 @@ public class APDU
         EncodeAbortOrReject(buffer, type, invokeId, reason);
     }
 
-    private static void EncodeAbortOrReject(EncodeBuffer buffer, BacnetPduTypes type, byte invokeId, dynamic reason)
+    private static void EncodeAbortOrReject(EncodeBuffer buffer, BacnetPduTypes type, byte invokeId, object reason)
     {
         buffer.buffer[buffer.offset++] = (byte)type;
         buffer.buffer[buffer.offset++] = invokeId;
@@ -210,7 +210,7 @@ public class APDU
 
         type = (BacnetPduTypes)buffer[offset++];
         invokeId = buffer[offset++];
-        reason = (TReason)(dynamic)buffer[offset++];
+        reason = (TReason)(object)(int)buffer[offset++];
 
         return offset - orgOffset;
     }

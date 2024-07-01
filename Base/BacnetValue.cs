@@ -64,14 +64,14 @@ public struct BacnetValue
         }
 
         if (typeof(T) == typeof(TimeSpan) && Tag == BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME)
-            return (T)(dynamic)((DateTime)Value).TimeOfDay;
+            return (T)(object)((DateTime)Value).TimeOfDay;
 
         if (typeof(T) != typeof(object) && TagFromType(typeof(T)) != Tag)
             throw new ArgumentException($"Value with tag {Tag} can't be converted to {typeof(T).Name}");
 
         // ReSharper disable once RedundantCast
         // This is needed for casting to enums
-        return (T)(dynamic)Value;
+        return (T)Value;
     }
 
     public override string ToString()

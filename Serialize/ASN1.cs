@@ -2235,8 +2235,8 @@ public class ASN1
     public static int decode_tag_number_and_value<TTag, TValue>(byte[] buffer, int offset, out TTag tag, out TValue value)
     {
         var len = decode_tag_number_and_value(buffer, offset, out var rawByte, out var rawValue);
-        tag = (TTag)(dynamic)rawByte;
-        value = (TValue)(dynamic)rawValue;
+        tag = (TTag)(object)(int)rawByte;
+        value = (TValue)(object)rawValue;
         return len;
     }
 
