@@ -5,6 +5,8 @@ namespace System.IO.BACnet.Storage;
 /// <summary>
 /// This is a basic example of a BACNet storage. This one is XML based. It has no fancy optimizing or anything.
 /// </summary>
+[UnconditionalSuppressMessage("Aot", "IL2026:RequiresUnreferencedCode", Justification = "DynamicDependencyAttribute will make sure that DeviceStorage will be available during runtime.")]
+[UnconditionalSuppressMessage("Aot", "IL2111:DynamicallyAccessedMembers", Justification = "DynamicDependencyAttribute will make sure that DeviceStorage will be available during runtime.")]
 [Serializable]
 public class DeviceStorage
 {
@@ -365,14 +367,17 @@ public class DeviceStorage
     /// Store the class, as XML file
     /// </summary>
     /// <param name="path"></param>
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Object))]
     [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DeviceStorage))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(BacnetObjectTypes))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ReadOverrideHandler))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ChangeOfValueHandler))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(WriteOverrideHandler))]
     public void Save(string path)
     {
-#pragma warning disable IL2026 // RequiresUnreferencedCodeAttribute can break functionality when trimming application code.
         var s = new XmlSerializer(typeof(DeviceStorage));
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
         s.Serialize(fs, this);
-#pragma warning restore IL2026
     }
 
     /// <summary>
@@ -381,7 +386,12 @@ public class DeviceStorage
     /// <param name="path">Embedded or external file</param>
     /// <param name="deviceId">Optional deviceId other than the one in the Xml file</param>
     /// <returns></returns>
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Object))]
     [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DeviceStorage))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(BacnetObjectTypes))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ReadOverrideHandler))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ChangeOfValueHandler))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(WriteOverrideHandler))]
     public static DeviceStorage Load(string path, uint? deviceId = null)
     {
         StreamReader textStreamReader;
@@ -401,13 +411,12 @@ public class DeviceStorage
 
             textStreamReader = new StreamReader(path);
         }
-#pragma warning disable IL2026 // RequiresUnreferencedCodeAttribute can break functionality when trimming application code.
+
         var s = new XmlSerializer(typeof(DeviceStorage));
 
         using (textStreamReader)
         {
             var ret = (DeviceStorage)s.Deserialize(textStreamReader);
-#pragma warning restore IL2026
             //set device_id
             var obj = ret.FindObject(BacnetObjectTypes.OBJECT_DEVICE);
             if (obj != null)
