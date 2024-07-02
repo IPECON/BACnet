@@ -17,7 +17,6 @@
 		<PackageIcon>logo.png</PackageIcon>
 		<PackageIconUrl>https://raw.githubusercontent.com/ela-compil/BACnet/master/logo.png</PackageIconUrl>
 		<Platforms>AnyCPU;x86;x64</Platforms>
-		<IsTrimmable>true</IsTrimmable>
 	</PropertyGroup>
 
 	<ItemGroup>
