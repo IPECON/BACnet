@@ -665,7 +665,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             if (ForceWindowSize)
                 proposedWindowNumber = ProposedWindowSize;
 
-            SegmentAckResponse(adr, false, server, invokeId, sequenceNumber, proposedWindowNumber);
+            SegmentAckResponse(adr.SwapDirection(), false, server, invokeId, sequenceNumber, proposedWindowNumber);
         }
 
         //Send on
