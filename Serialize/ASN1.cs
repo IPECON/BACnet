@@ -435,12 +435,27 @@ public class ASN1
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE:
-                encode_application_date(buffer, (DateTime)value.Value);
-                break;
+                {
+                    if (value.Value is BacnetDate bacnetDate)
+                    {
+                        encode_application_date(buffer, bacnetDate);
+                        break;
+                    }
 
+                    encode_application_date(buffer, (DateTime)value.Value);
+                    break;
+                }
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME:
-                encode_application_time(buffer, (DateTime)value.Value);
-                break;
+                {
+                    if (value.Value is BacnetTime bacnetTime)
+                    {
+                        encode_application_time(buffer, bacnetTime);
+                        break;
+                    }
+
+                    encode_application_time(buffer, (DateTime)value.Value);
+                    break;
+                }
             // Added for EventTimeStamp
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_TIMESTAMP:
                 bacapp_encode_timestamp(buffer, (BacnetGenericTime)value.Value);
@@ -731,10 +746,22 @@ public class ASN1
         encode_bacnet_date(buffer, value);
     }
 
+    public static void encode_application_date(EncodeBuffer buffer, BacnetDate value)
+    {
+        encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE, false, 4);
+        value.Encode(buffer);
+    }
+
     public static void encode_application_time(EncodeBuffer buffer, DateTime value)
     {
         encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
         encode_bacnet_time(buffer, value);
+    }
+
+    public static void encode_application_time(EncodeBuffer buffer, BacnetTime value)
+    {
+        encode_tag(buffer, (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_TIME, false, 4);
+        value.Encode(buffer);
     }
 
     public static void bacapp_encode_datetime(EncodeBuffer buffer, DateTime value)
