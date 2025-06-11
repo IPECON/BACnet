@@ -2337,7 +2337,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         }
         else
         {
-            ex = new Exception("Service not available");
+            ex = new Exception("Service not available", ex);
         }
 
         res.Dispose();
