@@ -1747,7 +1747,8 @@ public class ASN1
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED:
-                len = decode_enumerated(buffer, offset, lenValueType, out value.Value);
+                len = decode_enumerated(buffer, offset, lenValueType, out uint uintVal);
+                value.Value = uintVal;
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE:
@@ -2181,9 +2182,18 @@ public class ASN1
     }
 
     public static int decode_enumerated<TEnum>(byte[] buffer, int offset, uint lenValue, out TEnum value)
+        where TEnum : Enum
     {
         var len = decode_enumerated(buffer, offset, lenValue, out var rawValue);
-        value = (TEnum)(dynamic)rawValue;
+
+        try
+        {
+            value = (TEnum)Enum.ToObject(typeof(TEnum), rawValue);
+        }
+        catch (Exception e)
+        {
+            throw new Exception($"Unable to cast raw value '{rawValue}' to enum type '{typeof(TEnum)}'", e);
+        }
         return len;
     }
 
@@ -2500,7 +2510,20 @@ public class ASN1
         return len + decode_real(buffer, offset + len, out value);
     }
 
+    public static int decode_context_enumerated(byte[] buffer, int offset, byte tagNumber, out uint value)
+    {
+        if (!decode_is_context_tag(buffer, offset, tagNumber) || decode_is_closing_tag(buffer, offset))
+        {
+            value = 0;
+            return -1;
+        }
+
+        var len = decode_tag_number_and_value(buffer, offset, out _, out var lenValue);
+        return len + decode_enumerated(buffer, offset + len, lenValue, out value);
+    }
+
     public static int decode_context_enumerated<TEnum>(byte[] buffer, int offset, byte tagNumber, out TEnum value)
+        where TEnum : Enum
     {
         if (!decode_is_context_tag(buffer, offset, tagNumber) || decode_is_closing_tag(buffer, offset))
         {

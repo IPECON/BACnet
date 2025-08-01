@@ -1061,10 +1061,16 @@ public class Services
                         break;
 
                     case BacnetEventTypes.EVENT_CHANGE_OF_LIFE_SAFETY:
-                        len += ASN1.decode_context_enumerated(buffer, offset + len, 0, out eventData.changeOfLifeSafety_newState);
-                        len += ASN1.decode_context_enumerated(buffer, offset + len, 1, out eventData.changeOfLifeSafety_newMode);
+                        len += ASN1.decode_context_enumerated(buffer, offset + len, 0, out BacnetLifeSafetyStates bacnetLifeSafetyStates);
+                        eventData.changeOfLifeSafety_newState = bacnetLifeSafetyStates;
+
+                        len += ASN1.decode_context_enumerated(buffer, offset + len, 1, out BacnetLifeSafetyModes bacnetLifeSafetyModes);
+                        eventData.changeOfLifeSafety_newMode = bacnetLifeSafetyModes;
+
                         len += ASN1.decode_context_bitstring(buffer, offset + len, 2, out eventData.changeOfLifeSafety_statusFlags);
-                        len += ASN1.decode_context_enumerated(buffer, offset + len, 3, out eventData.changeOfLifeSafety_operationExpected);
+
+                        len += ASN1.decode_context_enumerated(buffer, offset + len, 3, out BacnetLifeSafetyOperations bacnetLifeSafetyOperations);
+                        eventData.changeOfLifeSafety_operationExpected = bacnetLifeSafetyOperations;
                         break;
 
                     case BacnetEventTypes.EVENT_BUFFER_READY:
