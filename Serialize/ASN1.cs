@@ -431,7 +431,15 @@ public class ASN1
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED:
-                encode_application_enumerated(buffer, (uint)(dynamic)value.Value);
+                try
+                {
+                    encode_application_enumerated(buffer, Convert.ToUInt32(value.Value));
+                }
+                catch (Exception e)
+                {
+                    throw new Exception($"Cannot cast value '{value.Value}' (of type {value.Value.GetType()}) to {nameof(BacnetApplicationTags.BACNET_APPLICATION_TAG_ENUMERATED)}", e);
+                }
+
                 break;
 
             case BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE:
