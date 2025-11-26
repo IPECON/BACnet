@@ -41,7 +41,7 @@ public class BacnetAddress : ASN1.IEncode
                     : (ushort)0xBAC0);
 
                 if (BitConverter.IsLittleEndian)
-                    portBytes = portBytes.Reverse().ToArray();
+                    portBytes.Reverse();
 
                 Array.Copy(portBytes, 0, adr, addressBytes.Length, portBytes.Length);
                 break;
