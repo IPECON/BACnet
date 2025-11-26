@@ -1,6 +1,6 @@
 ﻿namespace System.IO.BACnet
 {
-    internal class InvokeIdGenerator
+    internal sealed class InvokeIdGenerator
     {
         private byte _invokeId = 1;
         private readonly object _lock = new();
