@@ -11,7 +11,7 @@
 
         public void CreateSynchronizeTime(EncodeBuffer buffer, BacnetAddress adr, DateTime dateTime, BacnetAddress source = null)
         {
-            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr, source);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, source);
             APDU.EncodeUnconfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, dateTime.Kind == DateTimeKind.Utc
                 ? BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_UTC_TIME_SYNCHRONIZATION
                 : BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_TIME_SYNCHRONIZATION);
@@ -20,7 +20,7 @@
 
         public void CreateSynchronizeTime(EncodeBuffer buffer, BacnetAddress adr, BacnetDate bacnetDate, BacnetTime bacnetTime, bool isUtc, BacnetAddress source = null)
         {
-            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr, source);
+            NPDU.Encode(buffer, BacnetNpduControls.PriorityNormalMessage, adr.RoutedDestination, source);
             APDU.EncodeUnconfirmedServiceRequest(buffer, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, isUtc
                 ? BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_UTC_TIME_SYNCHRONIZATION
                 : BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_TIME_SYNCHRONIZATION);
