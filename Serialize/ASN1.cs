@@ -1587,7 +1587,7 @@ public class ASN1
         var len = 0;
         len += decode_application_date(buffer, offset + len, out var date); // Date
         len += decode_application_time(buffer, offset + len, out var time); // Time
-        bdatetime = new DateTime(date.Year, date.Month, date.Day, time.Hour, time.Minute, time.Second, time.Millisecond);
+        bdatetime = new DateTime(date.ToDateTime().Year, date.ToDateTime().Month, date.ToDateTime().Day, time.Hour, time.Minute, time.Second, time.Millisecond);
         return len;
     }
 
