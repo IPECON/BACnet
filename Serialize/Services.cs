@@ -2515,8 +2515,8 @@ public class Services
             return -1;
         len += ASN1.decode_bacnet_time(buffer, offset + len, out var time);
 
-        //merge
-        dateTime = new DateTime(date.Year, date.Month, date.Day, time.Hour, time.Minute, time.Second, time.Millisecond);
+        // merge
+        dateTime = date.ToDateTime().Add(time.TimeOfDay);
 
         return len;
     }
