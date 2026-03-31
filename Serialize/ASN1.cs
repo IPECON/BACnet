@@ -2056,23 +2056,23 @@ public class ASN1
                 {
                     len += decode_bacnet_time(buffer, offset + len, out var dt);
                     value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_TIMESTAMP;
-                    value.Value = dt;
+                    value.Value = new BacnetGenericTime(dt, BacnetTimestampTags.TIME_STAMP_TIME);
                 }
                 else if (tagNumber == 1) // sequence number
                 {
                     len += decode_unsigned(buffer, offset + len, lenValueType, out var val);
                     value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_UNSIGNED_INT;
-                    value.Value = val;
+                    value.Value = new BacnetGenericTime(DateTime.MinValue, BacnetTimestampTags.TIME_STAMP_SEQUENCE, (ushort)val);
                 }
                 else if (tagNumber == 2) // date + time
                 {
                     len += decode_bacnet_datetime(buffer, offset + len, out var dt);
                     value.Tag = BacnetApplicationTags.BACNET_APPLICATION_TAG_TIMESTAMP;
-                    len++;  // closing Tag
-                    value.Value = dt;
+                    len++; // closing Tag
+                    value.Value = new BacnetGenericTime(dt, BacnetTimestampTags.TIME_STAMP_DATETIME);
                 }
                 else
-                    return -1;
+                    throw new Exception($"Unexpected tagNumber ({tagNumber}) when decoding {propertyId}");
 
                 return len;
             }
