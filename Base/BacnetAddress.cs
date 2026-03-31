@@ -2,7 +2,7 @@
 
 namespace System.IO.BACnet;
 
-public class BacnetAddress : ASN1.IEncode
+public class BacnetAddress : ASN1.IEncode, ASN1.IDecode
 {
     public ushort net;
     public byte[] adr;
@@ -222,6 +222,30 @@ public class BacnetAddress : ASN1.IEncode
         ASN1.encode_application_unsigned(buffer, net);
         ASN1.encode_application_octet_string(buffer, adr, 0, adr.Length);
         ASN1.encode_closing_tag(buffer, 1);
+    }
+
+    public int Decode(byte[] buffer, int offset, uint count)
+    {
+        var len = 0;
+
+        ASN1.decode_is_opening_tag(buffer, offset);
+        len++;
+
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out var tagNumber, out var lenValueType);
+        if (tagNumber != (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_UNSIGNED_INT)
+            return -1;
+        len += ASN1.decode_unsigned(buffer, offset + len, lenValueType, out var tmp);
+        net = (ushort)tmp;
+        len += ASN1.decode_tag_number_and_value(buffer, offset + len, out tagNumber, out lenValueType);
+        if (tagNumber != (byte)BacnetApplicationTags.BACNET_APPLICATION_TAG_OCTET_STRING)
+            return -1;
+        adr = new byte[lenValueType];
+        len += ASN1.decode_octet_string(buffer, offset + len, (int)count, adr, 0, lenValueType);
+
+        ASN1.decode_is_closing_tag(buffer, offset);
+        len++;
+
+        return len;
     }
 
     public string FullHashString()
