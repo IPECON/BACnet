@@ -930,7 +930,7 @@ public class ASN1
             if (pValue.property.propertyArrayIndex != BACNET_ARRAY_ALL)
                 encode_context_unsigned(buffer, 3, pValue.property.propertyArrayIndex);
 
-            if (pValue.value != null && pValue.value[0].Value is BacnetError)
+            if (pValue.value != null && pValue.value.Count > 0 && pValue.value[0].Value is BacnetError)
             {
                 /* Tag 5: Error */
                 encode_opening_tag(buffer, 5);
