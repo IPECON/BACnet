@@ -8,8 +8,8 @@ BACnetDateRange ::= SEQUENCE {
 */
 public class BacnetDateRange : ASN1.IEncode, ASN1.IDecode
 {
-    public BacnetDate StartDate;
-    public BacnetDate EndDate;
+    public BacnetDate StartDate { get; set; }
+    public BacnetDate EndDate { get; set; }
 
     public BacnetDateRange()
     {

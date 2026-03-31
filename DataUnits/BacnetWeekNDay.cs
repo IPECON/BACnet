@@ -61,9 +61,9 @@ BACnetWeekNDay ::= OCTET STRING (SIZE (3))
 */
 public class BacnetWeekNDay : ASN1.IEncode, ASN1.IDecode
 {
-    public MonthOptions Month;
-    public WeekOfMonthOptions WeekOfMonth;
-    public DayOfWeekOptions DayOfWeek;
+    public MonthOptions Month { get; set; }
+    public WeekOfMonthOptions WeekOfMonth { get; set; }
+    public DayOfWeekOptions DayOfWeek { get; set; }
 
     public BacnetWeekNDay()
     {
