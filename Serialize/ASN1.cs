@@ -2047,7 +2047,7 @@ public class ASN1
                 value.Value = v;
                 return tagLen;
             }
-            if (propertyId == BacnetPropertyIds.PROP_EVENT_TIME_STAMPS)
+            if (propertyId == BacnetPropertyIds.PROP_EVENT_TIME_STAMPS || propertyId == BacnetPropertyIds.PROP_LAST_RESTORE_TIME)
             {
                 decode_tag_number_and_value(buffer, offset + len, out tagNumber, out lenValueType);
                 len++; // skip Tag
