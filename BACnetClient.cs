@@ -1122,17 +1122,24 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     }
 
     // ReSharper disable once InconsistentNaming
-    public void IHave(BacnetObjectId deviceId, BacnetObjectId objId, string objName, BacnetAddress source = null)
+    public void IHave(BacnetObjectId deviceId, BacnetObjectId objId, string objName, BacnetAddress source = null, BacnetAddress receiver = null)
     {
-        Log.Debug($"Broadcasting IHave {objName} {objId}");
+        if (receiver == null)
+        {
+            receiver = Transport.GetBroadcastAddress();
+            Log.Debug($"Broadcasting IHave {objName} {objId}");
+        }
+        else
+        {
+            Log.Debug($"Sending IHave {objName} {objId} to {receiver}");
+        }
 
         var b = GetEncodeBuffer(Transport.HeaderLength);
-        var broadcast = Transport.GetBroadcastAddress();
-        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, broadcast, source);
+        NPDU.Encode(b, BacnetNpduControls.PriorityNormalMessage, receiver, source);
         APDU.EncodeUnconfirmedServiceRequest(b, BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST, BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_HAVE);
         Services.EncodeIhaveBroadcast(b, deviceId, objId, objName);
 
-        Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, broadcast, false, 0);
+        Transport.Send(b.buffer, Transport.HeaderLength, b.offset - Transport.HeaderLength, receiver, false, 0);
     }
 
     public void SendUnconfirmedEventNotification(BacnetAddress adr, BacnetEventNotificationData eventData, BacnetAddress source = null)
