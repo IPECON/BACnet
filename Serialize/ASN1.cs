@@ -2047,7 +2047,16 @@ public class ASN1
                 value.Value = v;
                 return tagLen;
             }
-            if (propertyId == BacnetPropertyIds.PROP_EVENT_TIME_STAMPS || propertyId == BacnetPropertyIds.PROP_LAST_RESTORE_TIME || propertyId == BacnetPropertyIds.PROP_TIME_OF_DEVICE_RESTART)
+
+            if (propertyId == BacnetPropertyIds.PROP_EVENT_TIME_STAMPS)
+            {
+                BacnetEventTimeStamps bacnetEventTimeStamps = new BacnetEventTimeStamps();
+                len += bacnetEventTimeStamps.Decode(buffer, offset, (uint)maxOffset);
+                value = new BacnetValue(BacnetApplicationTags.BACNET_APPLICATION_TAG_CONTEXT_SPECIFIC_DECODED, bacnetEventTimeStamps);
+                return len;
+            }
+
+            if (propertyId == BacnetPropertyIds.PROP_LAST_RESTORE_TIME || propertyId == BacnetPropertyIds.PROP_TIME_OF_DEVICE_RESTART)
             {
                 decode_tag_number_and_value(buffer, offset + len, out tagNumber, out lenValueType);
                 len++; // skip Tag
