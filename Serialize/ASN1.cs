@@ -1673,8 +1673,7 @@ public class ASN1
         }
         else
         {
-            bdate = new BacnetDate(0xff, 0xff, 0xff);
-            len = -1;
+            throw new FormatException($"Unexpected tagNumber {tagNumber} - expected {BacnetApplicationTags.BACNET_APPLICATION_TAG_DATE} instead");
         }
         return len;
     }
