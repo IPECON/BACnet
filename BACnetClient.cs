@@ -20,7 +20,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
     /// TODO: invoke-id should be PER (remote) DEVICE!
     /// </summary>
-    private readonly Dictionary<byte, List<Tuple<byte, byte[]>>> _segmentsPerInvokeId = new();
+    private readonly Dictionary<byte, Dictionary<byte, byte[]>> _segmentsPerInvokeId = new();
     private readonly Dictionary<byte, object> _locksPerInvokeId = new();
     private readonly Dictionary<byte, byte> _expectedSegmentsPerInvokeId = new();
     private readonly BacnetMessageFactory _messageFactory;
@@ -649,7 +649,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         Log.Trace($@"Processing Segment #{sequenceNumber} of invoke-id #{invokeId}");
 
         if (!_segmentsPerInvokeId.ContainsKey(invokeId))
-            _segmentsPerInvokeId[invokeId] = new List<Tuple<byte, byte[]>>();
+            _segmentsPerInvokeId[invokeId] = new Dictionary<byte, byte[]>();
 
         if (!_expectedSegmentsPerInvokeId.ContainsKey(invokeId))
             _expectedSegmentsPerInvokeId[invokeId] = byte.MaxValue;
@@ -683,15 +683,20 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         var segments = _segmentsPerInvokeId[invokeId];
 
+        if (segments.ContainsKey(sequenceNumber))
+        {
+            Log.Warn($"Received segment with sequence number {sequenceNumber} which has already been received for invoke id {invokeId}. Overwriting.");
+        }
+        
         if (sequenceNumber == 0)
         {
             //copy buffer + encode new adpu header
             type &= ~BacnetPduTypes.SEGMENTED_MESSAGE;
             var confirmedServiceRequest = (type & BacnetPduTypes.PDU_TYPE_MASK) == BacnetPduTypes.PDU_TYPE_CONFIRMED_SERVICE_REQUEST;
-            var adpuHeaderLen = confirmedServiceRequest ? 4 : 3;
+            var apduHeaderLen = confirmedServiceRequest ? 4 : 3;
 
-            var copy = new byte[length + adpuHeaderLen];
-            Array.Copy(buffer, offset, copy, adpuHeaderLen, length);
+            var copy = new byte[length + apduHeaderLen];
+            Array.Copy(buffer, offset, copy, apduHeaderLen, length);
             var encodedBuffer = new EncodeBuffer(copy, 0);
 
             if (confirmedServiceRequest)
@@ -699,12 +704,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             else
                 APDU.EncodeComplexAck(encodedBuffer, type, service, invokeId);
 
-            segments.Add(Tuple.Create(sequenceNumber, copy)); // doesn't include BVLC or NPDU
+            segments[sequenceNumber] = copy; // doesn't include BVLC or NPDU
         }
         else
         {
             //copy only content part
-            segments.Add(Tuple.Create(sequenceNumber, buffer.Skip(offset).Take(length).ToArray()));
+            segments[sequenceNumber] = buffer.Skip(offset).Take(length).ToArray();
         }
 
         //process when finished
@@ -712,7 +717,11 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             return;
 
         //assemble whole part
-        var apduBuffer = segments.OrderBy(s => s.Item1).SelectMany(s => s.Item2).ToArray();
+        var apduBuffer = segments
+            .OrderBy(s => s.Key)
+            .SelectMany(s => s.Value)
+            .ToArray();
+        
         segments.Clear();
         _expectedSegmentsPerInvokeId[invokeId] = byte.MaxValue;
 
