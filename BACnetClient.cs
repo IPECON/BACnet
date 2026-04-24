@@ -1,4 +1,5 @@
 using System.IO.BACnet.Factory;
+using System.IO.BACnet.Helpers;
 using System.Runtime.CompilerServices;
 using static System.IO.BACnet.BacnetIpUdpProtocolTransport;
 
@@ -20,9 +21,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
     /// TODO: invoke-id should be PER (remote) DEVICE!
     /// </summary>
-    private readonly Dictionary<byte, Dictionary<byte, byte[]>> _segmentsPerInvokeId = new();
     private readonly Dictionary<byte, object> _locksPerInvokeId = new();
-    private readonly Dictionary<byte, byte> _expectedSegmentsPerInvokeId = new();
+    private readonly SegmentationHelper _segmentationHelper = new();
     private readonly BacnetMessageFactory _messageFactory;
 
     public const int DefaultUdpPort = 0xBAC0;
@@ -648,44 +648,59 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     {
         Log.Trace($@"Processing Segment #{sequenceNumber} of invoke-id #{invokeId}");
 
-        if (!_segmentsPerInvokeId.ContainsKey(invokeId))
-            _segmentsPerInvokeId[invokeId] = new Dictionary<byte, byte[]>();
-
-        if (!_expectedSegmentsPerInvokeId.ContainsKey(invokeId))
-            _expectedSegmentsPerInvokeId[invokeId] = byte.MaxValue;
+        var segmentationInfo = _segmentationHelper.GetSegmentationInfo(invokeId, sequenceNumber == 0);
 
         var moreFollows = (type & BacnetPduTypes.MORE_FOLLOWS) == BacnetPduTypes.MORE_FOLLOWS;
 
         if (!moreFollows)
-            _expectedSegmentsPerInvokeId[invokeId] = (byte)(sequenceNumber + 1);
-
-        //send ACK
-        if (sequenceNumber % proposedWindowNumber == 0 || !moreFollows)
-        {
-            if (ForceWindowSize)
-                proposedWindowNumber = ProposedWindowSize;
-
-            SegmentAckResponse(adr.SwapDirection(), false, server, invokeId, sequenceNumber, proposedWindowNumber);
-        }
-
+            segmentationInfo.ExpectedSegments = (byte)(sequenceNumber + 1);
+        
         //Send on
         OnSegment?.Invoke(this, adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
 
         //default segment assembly. We run this seperately from the above handler, to make sure that it comes after!
+        bool assembled = false;
         if (DefaultSegmentationHandling)
-            PerformDefaultSegmentHandling(adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
+            assembled = PerformDefaultSegmentHandling(adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
+
+        var sequenceNumberToAck = segmentationInfo.GetSequenceNumberToAcknowledge(sequenceNumber, proposedWindowNumber);
+        
+        if (Log.IsDebugEnabled)
+        {
+            byte maxSequenceNumber = segmentationInfo.GetMaxReceivedSequenceNumber();
+            bool isContinuous = segmentationInfo.IsContinuous();
+            bool isComplete = segmentationInfo.IsComplete();
+            Log.Debug($"SEG#{sequenceNumber}[{invokeId}], maxSeq: {maxSequenceNumber}, expectedMaxSeq: {segmentationInfo.ExpectedSegments - 1}, allSegsRecvd: {isComplete}, isContinuous: {isContinuous}, lastAck: {segmentationInfo.LastAckedSequenceNumber}, ack: {sequenceNumberToAck}");
+        }
+        
+        if (sequenceNumberToAck != null)
+        {
+            if (ForceWindowSize)
+                proposedWindowNumber = ProposedWindowSize;
+
+            SegmentAckResponse(adr.SwapDirection(), false, server, invokeId, sequenceNumberToAck.Value, proposedWindowNumber);
+            segmentationInfo.LastAckedSequenceNumber = sequenceNumberToAck.Value;
+            Log.Debug($"SegmentACK[{invokeId}] -> SEQ {sequenceNumberToAck.Value}");
+        }
+
+        if (assembled)
+        {
+            Log.Debug($"Message '{invokeId}' reassembled.");
+            _segmentationHelper.Clear(invokeId);
+        }
     }
 
     /// <summary>
     /// This is a simple handling that stores all segments in memory and assembles them when done
     /// </summary>
-    private void PerformDefaultSegmentHandling(BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
+    private bool PerformDefaultSegmentHandling(BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
     {
-        var segments = _segmentsPerInvokeId[invokeId];
-
-        if (segments.ContainsKey(sequenceNumber))
+        var segmentationInfo = _segmentationHelper.GetSegmentationInfo(invokeId, false);
+        
+        if (segmentationInfo.HasSegment(sequenceNumber))
         {
-            Log.Warn($"Received segment with sequence number {sequenceNumber} which has already been received for invoke id {invokeId}. Overwriting.");
+            Log.Debug($"Received segment with sequence number {sequenceNumber} which has already been received for invoke id {invokeId}. Ignoring.");
+            return false;
         }
         
         if (sequenceNumber == 0)
@@ -704,29 +719,24 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             else
                 APDU.EncodeComplexAck(encodedBuffer, type, service, invokeId);
 
-            segments[sequenceNumber] = copy; // doesn't include BVLC or NPDU
+            segmentationInfo.AddSegment(sequenceNumber, copy); // doesn't include BVLC or NPDU
         }
         else
         {
             //copy only content part
-            segments[sequenceNumber] = buffer.Skip(offset).Take(length).ToArray();
+            segmentationInfo.AddSegment(sequenceNumber, buffer.Skip(offset).Take(length).ToArray());
         }
 
         //process when finished
-        if (segments.Count < _expectedSegmentsPerInvokeId[invokeId])
-            return;
+        if (!segmentationInfo.IsComplete())
+            return false;
 
         //assemble whole part
-        var apduBuffer = segments
-            .OrderBy(s => s.Key)
-            .SelectMany(s => s.Value)
-            .ToArray();
-        
-        segments.Clear();
-        _expectedSegmentsPerInvokeId[invokeId] = byte.MaxValue;
+        var apduBuffer = segmentationInfo.Build();
 
         //process
         ProcessApdu(adr, type, apduBuffer, 0, apduBuffer.Length);
+        return true;
     }
 
     private void ProcessApdu(BacnetAddress adr, BacnetPduTypes type, byte[] buffer, int offset, int length)
