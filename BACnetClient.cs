@@ -856,7 +856,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     private void ProcessSegment(BacnetAddress address, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, bool server, byte sequenceNumber, byte proposedWindowNumber, byte[] buffer, int offset, int length)
     {
         foreach (var expired in _segmentationHelper.RemoveExpired(SegmentReassemblyTimeout))
-            Log.Warn($"Dropped segmented {(expired.Key.Server ? "request" : "reply")} of invoke-id #{expired.Key.InvokeId} from {expired.Sender}: no segment for {SegmentReassemblyTimeout} ms");
+            Log.Warn($"Dropped segmented {(expired.Key.Server ? "request" : "reply")} of invoke-id #{expired.Key.InvokeId} from {expired.Sender}: no segment for {Environment.TickCount64 - expired.LastSegmentReceivedAt} ms (timeout {SegmentReassemblyTimeout} ms)");
 
         var segmentationInfo = _segmentationHelper.GetSegmentationInfo(address, invokeId, server, sequenceNumber);
         if (segmentationInfo == null)
@@ -865,16 +865,23 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             return;
         }
 
-        // One segment of a message at a time. Other messages have their own lock, so their segments don't wait,
-        // including the segments of a reply that a handler of the reassembled request waits for.
+        // One segment of a message at a time. Other messages have their own lock, so their segments don't wait.
+        byte[] apdu;
         lock (segmentationInfo)
         {
-            ProcessSegmentLocked(segmentationInfo, address, type, service, invokeId, maxSegments, maxAdpu, server,
-                sequenceNumber, proposedWindowNumber, buffer, offset, length);
+            apdu = ProcessSegmentLocked(segmentationInfo, address, type, service, invokeId, maxSegments, maxAdpu,
+                server, sequenceNumber, proposedWindowNumber, buffer, offset, length);
         }
+
+        // As in the standard, the last segment is acknowledged before the message is passed on: its handlers may take
+        // long, and the sender waits for the SegmentAck only APDU_Segment_Timeout. They run without the lock, after the
+        // message was removed, so a handler that waits for a reply never holds up other segments.
+        if (apdu != null)
+            ProcessApdu(address, type, apdu, 0, apdu.Length);
     }
 
-    private void ProcessSegmentLocked(SegmentationInfo segmentationInfo, BacnetAddress adr, BacnetPduTypes type,
+    /// <returns>The reassembled APDU once its last segment is received, otherwise null</returns>
+    private byte[] ProcessSegmentLocked(SegmentationInfo segmentationInfo, BacnetAddress adr, BacnetPduTypes type,
         BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu,
         bool server, byte sequenceNumber, byte proposedWindowNumber, byte[] buffer, int offset, int length)
     {
@@ -889,9 +896,9 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         OnSegment?.Invoke(this, adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
 
         //default segment assembly. We run this seperately from the above handler, to make sure that it comes after!
-        bool assembled = false;
+        byte[] apdu = null;
         if (DefaultSegmentationHandling)
-            assembled = PerformDefaultSegmentHandling(segmentationInfo, adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
+            apdu = PerformDefaultSegmentHandling(segmentationInfo, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
 
         var sequenceNumberToAck = segmentationInfo.GetSequenceNumberToAcknowledge(sequenceNumber, proposedWindowNumber);
         
@@ -913,22 +920,25 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             Log.Debug($"SegmentACK[{invokeId}] -> SEQ {sequenceNumberToAck.Value}");
         }
 
-        if (assembled)
+        if (apdu != null)
         {
             Log.Debug($"Message '{invokeId}' reassembled.");
             _segmentationHelper.Remove(segmentationInfo);
         }
+
+        return apdu;
     }
 
     /// <summary>
     /// This is a simple handling that stores all segments in memory and assembles them when done
     /// </summary>
-    private bool PerformDefaultSegmentHandling(SegmentationInfo segmentationInfo, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
+    /// <returns>The reassembled APDU once all segments are received, otherwise null</returns>
+    private byte[] PerformDefaultSegmentHandling(SegmentationInfo segmentationInfo, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
     {
         if (segmentationInfo.HasSegment(sequenceNumber))
         {
             Log.Debug($"Received segment with sequence number {sequenceNumber} which has already been received for invoke id {invokeId}. Ignoring.");
-            return false;
+            return null;
         }
         
         if (sequenceNumber == 0)
@@ -955,16 +965,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             segmentationInfo.AddSegment(sequenceNumber, buffer.Skip(offset).Take(length).ToArray());
         }
 
-        //process when finished
-        if (!segmentationInfo.IsComplete())
-            return false;
-
-        //assemble whole part
-        var apduBuffer = segmentationInfo.Build();
-
-        //process
-        ProcessApdu(adr, type, apduBuffer, 0, apduBuffer.Length);
-        return true;
+        //assemble when finished
+        return segmentationInfo.IsComplete() ? segmentationInfo.Build() : null;
     }
 
     private void ProcessApdu(BacnetAddress adr, BacnetPduTypes type, byte[] buffer, int offset, int length)
