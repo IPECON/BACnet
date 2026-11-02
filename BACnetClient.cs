@@ -1,6 +1,7 @@
 using System.IO.BACnet.Factory;
 using System.IO.BACnet.Helpers;
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using static System.IO.BACnet.BacnetIpUdpProtocolTransport;
 
 namespace System.IO.BACnet;
@@ -10,10 +11,29 @@ public delegate void MessageRecievedHandler(IBacnetTransport sender, byte[] buff
 /// <summary>
 /// BACnet network client or server
 /// </summary>
+/// <remarks>
+/// Replies to our own requests (SimpleAck, ComplexAck, SegmentAck, Error, Reject, Abort) are processed on the
+/// transport's receive thread, so a pending request completes even while request handlers are busy.
+/// Received requests, notifications and network layer messages are queued, and their handlers
+/// (<see cref="OnIam"/>, <see cref="OnCOVNotification"/>, <see cref="OnReadPropertyRequest"/>, ...) run one at a
+/// time on a dedicated dispatcher thread, in arrival order. These handlers may send requests and wait for the
+/// replies.
+/// </remarks>
 public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 {
     private int mRetries;
     private readonly InvokeIdGenerator mInvokeId = new();
+
+    private Channel<ReceivedRequest> _receivedRequests;
+    private int _droppedRequests;
+    private volatile bool _disposed;
+
+    /// <summary>
+    /// A received service request, notification or network layer message, waiting for the dispatcher thread.
+    /// The buffer is a copy, because some transports reuse their receive buffer.
+    /// </summary>
+    private readonly record struct ReceivedRequest(BacnetAddress Address, byte[] Buffer, BacnetPduTypes ApduType,
+        bool IsNetworkMessage, BacnetNpduControls NpduFunction, BacnetNetworkMessageTypes NetworkMessageType);
 
     private readonly LastSegmentAck _lastSegmentAck = new();
 
@@ -28,6 +48,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public const int DefaultUdpPort = 0xBAC0;
     public const int DefaultTimeout = 1000;
     public const int DefaultRetries = 3;
+    public const int DefaultRequestQueueCapacity = 10000;
 
     public IBacnetTransport Transport { get; }
     public BacnetMaxAdpu MaxApduLength => Transport.MaxApduLength;
@@ -38,6 +59,14 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public byte ProposedWindowSize { get; set; } = 10;
     public bool ForceWindowSize { get; set; }
     public bool DefaultSegmentationHandling { get; set; } = true;
+
+    /// <summary>
+    /// Maximum number of received requests and notifications waiting for the dispatcher thread. When the queue is
+    /// full, further ones are dropped (and logged) until the handlers catch up; replies are never queued.
+    /// Must be set before <see cref="Start"/>.
+    /// </summary>
+    public int RequestQueueCapacity { get; set; } = DefaultRequestQueueCapacity;
+
     public ILog Log { get; set; } = LogManager.GetLogger<BacnetClient>();
     public event BvlcResultReceiveHandler OnBvlcResultReceived;
 
@@ -135,9 +164,98 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public void Start()
     {
+        StartRequestDispatcher();
         Transport.Start();
         Transport.MessageReceived += OnRecieve;
         Log.Info("Started communication");
+    }
+
+    private void StartRequestDispatcher()
+    {
+        if (_receivedRequests != null)
+            return;
+
+        // FullMode.Wait only makes TryWrite fail when the queue is full; nothing waits, see QueueRequest
+        _receivedRequests = Channel.CreateBounded<ReceivedRequest>(new BoundedChannelOptions(RequestQueueCapacity)
+        {
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.Wait
+        });
+
+        new Thread(DispatchRequests)
+        {
+            IsBackground = true,
+            Name = $"BACnet requests {Transport}"
+        }.Start(_receivedRequests.Reader);
+    }
+
+    private void DispatchRequests(object state)
+    {
+        var reader = (ChannelReader<ReceivedRequest>)state;
+
+        // A dedicated thread, because handlers block: they call into the application and may wait for replies
+        while (reader.WaitToReadAsync().AsTask().GetAwaiter().GetResult())
+        {
+            while (reader.TryRead(out var request))
+            {
+                if (_disposed)
+                    return;
+
+                ProcessRequest(request);
+            }
+        }
+    }
+
+    private void QueueRequest(in ReceivedRequest request)
+    {
+        if (_receivedRequests.Writer.TryWrite(request))
+        {
+            if (Volatile.Read(ref _droppedRequests) > 0)
+            {
+                var dropped = Interlocked.Exchange(ref _droppedRequests, 0);
+                if (dropped > 0)
+                    Log.Warn($"Request queue accepts messages again. Dropped {dropped} received requests and notifications");
+            }
+
+            return;
+        }
+
+        if (_disposed)
+            return;
+
+        // Log only the first drop; the count follows once the queue accepts messages again
+        if (Interlocked.Increment(ref _droppedRequests) == 1)
+            Log.Warn($"Request queue is full ({RequestQueueCapacity}). Dropping received requests and notifications until the handlers catch up");
+    }
+
+    private void ProcessRequest(in ReceivedRequest request)
+    {
+        try
+        {
+            if (request.IsNetworkMessage)
+            {
+                Log.Info("Network Layer message received");
+                ProcessNetworkMessage(request.Address, request.NpduFunction, request.NetworkMessageType, request.Buffer, 0, request.Buffer.Length);
+            }
+            else
+            {
+                ProcessApdu(request.Address, request.ApduType, request.Buffer, 0, request.Buffer.Length);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Error in OnRecieve", ex);
+        }
+    }
+
+    private static bool IsReply(BacnetPduTypes apduType)
+    {
+        return (apduType & BacnetPduTypes.PDU_TYPE_MASK) is BacnetPduTypes.PDU_TYPE_SIMPLE_ACK
+            or BacnetPduTypes.PDU_TYPE_COMPLEX_ACK
+            or BacnetPduTypes.PDU_TYPE_SEGMENT_ACK
+            or BacnetPduTypes.PDU_TYPE_ERROR
+            or BacnetPduTypes.PDU_TYPE_REJECT
+            or BacnetPduTypes.PDU_TYPE_ABORT;
     }
 
     public delegate void ConfirmedServiceRequestHandler(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte invokeId, byte[] buffer, int offset, int length);
@@ -986,8 +1104,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
             if (npduFunction.HasFlag(BacnetNpduControls.NetworkLayerMessage))
             {
-                Log.Info("Network Layer message received");
-                ProcessNetworkMessage(remoteAddress, npduFunction, npduMessageType, buffer, offset, msgLength);
+                QueueRequest(new ReceivedRequest(remoteAddress, buffer.AsSpan(offset, msgLength).ToArray(), default,
+                    true, npduFunction, npduMessageType));
                 return;
             }
 
@@ -995,7 +1113,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 return;
 
             var apduType = APDU.GetDecodedType(buffer, offset);
-            ProcessApdu(remoteAddress, apduType, buffer, offset, msgLength);
+
+            if (IsReply(apduType))
+                ProcessApdu(remoteAddress, apduType, buffer, offset, msgLength);
+            else
+                QueueRequest(new ReceivedRequest(remoteAddress, buffer.AsSpan(offset, msgLength).ToArray(), apduType,
+                    false, default, default));
         }
         catch (Exception ex)
         {
@@ -2854,6 +2977,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
+        _receivedRequests?.Writer.TryComplete();
         Transport.Dispose();
     }
 }

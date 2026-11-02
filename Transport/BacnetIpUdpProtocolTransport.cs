@@ -13,6 +13,9 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     private readonly ITransportMonitor _transportMonitor;
     private BacnetAddress _broadcastAddress;
     private bool _disposing;
+    private CancellationTokenSource _receiveCancellation;
+
+    private static readonly TimeSpan ReceiveErrorDelay = TimeSpan.FromMilliseconds(100);
 
     public delegate void BvlcResultReceiveHandler(IPEndPoint sender, BacnetBvlcResults result);
     public event BvlcResultReceiveHandler OnBvlcResultReceived; 
@@ -20,6 +23,12 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     public BVLC Bvlc { get; private set; }
     public int SharedPort { get; }
     public int ExclusivePort { get; }
+
+    /// <summary>
+    /// Minimum size of the socket receive buffer, in bytes. Datagrams that arrive while the buffer is full are
+    /// dropped by the operating system. A larger system default is kept. Must be set before <see cref="Start"/>.
+    /// </summary>
+    public int SocketReceiveBufferSize { get; set; } = 1024 * 1024;
 
     // Give 0.0.0.0:xxxx if the socket is open with System.Net.IPAddress.Any
     // Today only used by _GetBroadcastAddress method & the bvlc layer class in BBMD mode
@@ -81,6 +90,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
                 DisableConnReset(_sharedConn);
                 _sharedConn.Client.Bind(ep);
                 SetDontFragment(_sharedConn, _dontFragment);
+                SetReceiveBufferSize(_sharedConn);
                 Log.Info($"Binded shared {ep} using UDP");
             }
             /* This is our own exclusive port. We'll recieve everything sent to this. */
@@ -104,6 +114,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
                 };
                 SetDontFragment(_exclusiveConn, _dontFragment);
                 DisableConnReset(_exclusiveConn);
+                SetReceiveBufferSize(_exclusiveConn);
             }
         }
         else
@@ -114,6 +125,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
             DisableConnReset(_exclusiveConn);
             _exclusiveConn.Client.Bind(ep);
             SetDontFragment(_exclusiveConn, _dontFragment);
+            SetReceiveBufferSize(_exclusiveConn);
             _exclusiveConn.EnableBroadcast = true;
             Log.Info($"Binded exclusively to {ep} using UDP");
         }
@@ -144,8 +156,21 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         }
     }
 
+    private void SetReceiveBufferSize(UdpClient client)
+    {
+        try
+        {
+            if (client.Client.ReceiveBufferSize < SocketReceiveBufferSize)
+                client.Client.ReceiveBufferSize = SocketReceiveBufferSize;
+        }
+        catch (SocketException e)
+        {
+            Log.Warn($"Unable to set ReceiveBufferSize to {SocketReceiveBufferSize}", e);
+        }
+    }
+
     /// <summary>
-    ///   Done to prevent exceptions in Socket.BeginReceive()
+    ///   Done to prevent exceptions in Socket.ReceiveFrom()
     /// </summary>
     /// <remarks>
     ///   http://microsoft.public.win32.programmer.networks.narkive.com/RlxW2V6m/udp-comms-and-connection-reset-problem
@@ -174,39 +199,67 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
         Open();
 
-        _sharedConn?.BeginReceive(OnReceiveData, _sharedConn);
-        _exclusiveConn?.BeginReceive(OnReceiveData, _exclusiveConn);
+        _receiveCancellation = new CancellationTokenSource();
+        StartReceiving(_sharedConn);
+        StartReceiving(_exclusiveConn);
     }
 
-    private void OnReceiveData(IAsyncResult asyncResult)
+    private void StartReceiving(UdpClient connection)
     {
-        var connection = (UdpClient)asyncResult.AsyncState;
+        if (connection == null)
+            return;
 
-        try
+        var cancellationToken = _receiveCancellation.Token;
+        _ = Task.Run(() => ReceiveLoop(connection, cancellationToken));
+    }
+
+    /// <summary>
+    /// Receives datagrams one at a time and processes each before receiving the next, so they are processed in
+    /// arrival order. When datagrams are already queued in the socket, the receive completes synchronously and
+    /// the next iteration handles it, so a burst doesn't nest one call per datagram.
+    /// Message handlers must not block: the client processes replies right here and hands requests and
+    /// notifications to its own dispatcher thread.
+    /// </summary>
+    private async Task ReceiveLoop(UdpClient connection, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
         {
-            IPEndPoint ep = null;
-            byte[] receiveBuffer;
+            UdpReceiveResult received;
 
             try
             {
-                receiveBuffer = connection.EndReceive(asyncResult, ref ep);
+                received = await connection.ReceiveAsync(cancellationToken).ConfigureAwait(false);
             }
-            finally
+            catch (Exception e) when (e is ObjectDisposedException || cancellationToken.IsCancellationRequested || _disposing)
             {
-                if (connection.Client != null && !_disposing)
+                Log.Debug("Connection has been disposed");
+                return;
+            }
+            catch (Exception e)
+            {
+                Log.Error("Failed to receive data", e);
+
+                // Keep receiving, but don't spin if the error persists
+                try
                 {
-                    try
-                    {
-                        // BeginReceive ASAP to enable parallel processing (e.g. query additional data while processing a notification)
-                        connection.BeginReceive(OnReceiveData, connection);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"Failed to restart data receive. {ex}");
-                    }
+                    await Task.Delay(ReceiveErrorDelay, cancellationToken).ConfigureAwait(false);
                 }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                continue;
             }
 
+            OnReceiveData(received.Buffer, received.RemoteEndPoint);
+        }
+    }
+
+    private void OnReceiveData(byte[] receiveBuffer, IPEndPoint ep)
+    {
+        try
+        {
             var receivedLength = receiveBuffer.Length;
 
             if (receivedLength == 0) // Empty frame : port scanner maybe
@@ -279,7 +332,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         }
         catch (Exception e)
         {
-            if (connection.Client == null || _disposing)
+            if (_disposing)
                 return;
 
             Log.Error("Exception in OnRecieveData", e);
@@ -427,6 +480,9 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     public override void Dispose()
     {
         _disposing = true;
+        _receiveCancellation?.Cancel();
+        _receiveCancellation?.Dispose();
+        _receiveCancellation = null;
         _exclusiveConn?.Close();
         _exclusiveConn = null;
         _sharedConn?.Close();
