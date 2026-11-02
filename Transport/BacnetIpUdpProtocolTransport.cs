@@ -14,6 +14,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     private BacnetAddress _broadcastAddress;
     private bool _disposing;
     private CancellationTokenSource _receiveCancellation;
+    private TimeSpan _receiveErrorLogInterval = TimeSpan.FromMinutes(5);
 
     private const int MinReceiveErrorDelayMs = 100;
     private const int MaxReceiveErrorDelayMs = 5000;
@@ -33,9 +34,16 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
     /// <summary>
     /// While receiving keeps failing, the 1st, 2nd, 4th, 8th, ... failure in a row is logged, and at least one
-    /// failure in this interval, so a long outage still shows in the log.
+    /// failure in this interval, so a long outage still shows in the log. Must be greater than zero;
+    /// <see cref="TimeSpan.MaxValue"/> logs the powers of two only.
     /// </summary>
-    public TimeSpan ReceiveErrorLogInterval { get; set; } = TimeSpan.FromMinutes(5);
+    public TimeSpan ReceiveErrorLogInterval
+    {
+        get => _receiveErrorLogInterval;
+        set => _receiveErrorLogInterval = value > TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The interval must be greater than zero.");
+    }
 
     // Give 0.0.0.0:xxxx if the socket is open with System.Net.IPAddress.Any
     // Today only used by _GetBroadcastAddress method & the bvlc layer class in BBMD mode

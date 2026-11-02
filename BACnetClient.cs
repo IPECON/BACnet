@@ -312,7 +312,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             return;
 
         _lastQueueDelayWarning = now;
-        Log.Warn($"Received requests and notifications wait {waited} ms for their handlers ({_queuedAnswers.Count + _queuedRequests.Count} more queued)");
+        Log.Warn($"Received messages wait {waited} ms for their handlers ({_queuedAnswers.Count + _queuedRequests.Count} more queued)");
     }
 
     private void ProcessRequest(in ReceivedRequest request)
