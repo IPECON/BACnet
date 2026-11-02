@@ -17,7 +17,8 @@ public delegate void MessageRecievedHandler(IBacnetTransport sender, byte[] buff
 /// Received requests, notifications and network layer messages are queued, and their handlers
 /// (<see cref="OnIam"/>, <see cref="OnCOVNotification"/>, <see cref="OnReadPropertyRequest"/>, ...) run one at a
 /// time on a dedicated dispatcher thread, in arrival order. I-Am and I-Have answer our Who-Is and Who-Has, so they
-/// are handled before the other queued messages. These handlers may send requests and wait for the replies.
+/// are handled before the other queued messages and have their own queue capacity. These handlers may send requests
+/// and wait for the replies.
 /// </remarks>
 public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 {
@@ -25,16 +26,15 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     private readonly InvokeIdGenerator mInvokeId = new();
 
     // Received messages waiting for the dispatcher thread, answers first. _queuedSignal is released once per
-    // queued message, _queuedCount counts them for the capacity check.
-    private readonly ConcurrentQueue<ReceivedRequest> _queuedAnswers = new();
-    private readonly ConcurrentQueue<ReceivedRequest> _queuedRequests = new();
+    // queued message. Each queue has its own capacity, so a backlog of notifications can't crowd out answers.
+    private readonly ReceivedQueue _queuedAnswers = new("Answer", "received I-Am and I-Have");
+    private readonly ReceivedQueue _queuedRequests = new("Request", "received requests and notifications");
     private readonly SemaphoreSlim _queuedSignal = new(0);
-    private int _queuedCount;
-    private int _droppedRequests;
     private long _lastQueueDelayWarning;
     private bool _dispatcherStarted;
     private volatile bool _disposed;
     private int _requestQueueCapacity = DefaultRequestQueueCapacity;
+    private int _answerQueueCapacity = DefaultAnswerQueueCapacity;
 
     private const int QueueDelayWarningMs = 1000;
     private const int QueueDelayWarningIntervalMs = 10000;
@@ -46,6 +46,52 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     private readonly record struct ReceivedRequest(BacnetAddress Address, byte[] Buffer, BacnetPduTypes ApduType,
         bool IsNetworkMessage, BacnetNpduControls NpduFunction, BacnetNetworkMessageTypes NetworkMessageType,
         long QueuedAt);
+
+    /// <summary>
+    /// Received messages of one kind waiting for the dispatcher thread, with their count for the capacity check
+    /// and the number dropped since the queue was last full.
+    /// </summary>
+    private sealed class ReceivedQueue(string name, string contents)
+    {
+        private readonly ConcurrentQueue<ReceivedRequest> _messages = new();
+        private int _count;
+        private int _dropped;
+
+        public int Count => Volatile.Read(ref _count);
+
+        public bool TryEnqueue(in ReceivedRequest request, int capacity, ILog log)
+        {
+            if (Interlocked.Increment(ref _count) > capacity)
+            {
+                Interlocked.Decrement(ref _count);
+
+                // Log only the first drop; the count follows once the queue accepts messages again
+                if (Interlocked.Increment(ref _dropped) == 1)
+                    log.Warn($"{name} queue is full ({capacity}). Dropping {contents} until the handlers catch up");
+                return false;
+            }
+
+            _messages.Enqueue(request);
+
+            if (Volatile.Read(ref _dropped) > 0)
+            {
+                var dropped = Interlocked.Exchange(ref _dropped, 0);
+                if (dropped > 0)
+                    log.Warn($"{name} queue accepts messages again. Dropped {dropped} {contents}");
+            }
+
+            return true;
+        }
+
+        public bool TryDequeue(out ReceivedRequest request)
+        {
+            if (!_messages.TryDequeue(out request))
+                return false;
+
+            Interlocked.Decrement(ref _count);
+            return true;
+        }
+    }
 
     private readonly LastSegmentAck _lastSegmentAck = new();
 
@@ -63,6 +109,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public const int DefaultTimeout = 1000;
     public const int DefaultRetries = 3;
     public const int DefaultRequestQueueCapacity = 1000;
+    public const int DefaultAnswerQueueCapacity = 1000;
 
     public IBacnetTransport Transport { get; }
     public BacnetMaxAdpu MaxApduLength => Transport.MaxApduLength;
@@ -78,11 +125,29 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     /// Maximum number of received requests and notifications waiting for the dispatcher thread. When the queue is
     /// full, further ones are dropped (and logged) until the handlers catch up; replies are never queued.
     /// The default keeps the wait short: a queued confirmed request is useless once its sender has timed out.
+    /// I-Am and I-Have don't count here, see <see cref="AnswerQueueCapacity"/>.
     /// </summary>
     public int RequestQueueCapacity
     {
         get => _requestQueueCapacity;
-        set => _requestQueueCapacity = value > 0
+        set => _requestQueueCapacity = ValidCapacity(value);
+    }
+
+    /// <summary>
+    /// Maximum number of received I-Am and I-Have waiting for the dispatcher thread, apart from
+    /// <see cref="RequestQueueCapacity"/>, so that a backlog of notifications doesn't drop the answers to our Who-Is
+    /// and Who-Has. Answers are handled first, so they only pile up while a handler is busy. The default leaves room
+    /// for a broadcast Who-Is, which every device on the network answers.
+    /// </summary>
+    public int AnswerQueueCapacity
+    {
+        get => _answerQueueCapacity;
+        set => _answerQueueCapacity = ValidCapacity(value);
+    }
+
+    private static int ValidCapacity(int value)
+    {
+        return value > 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "The capacity must be greater than 0.");
     }
@@ -221,7 +286,6 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             if (!_queuedAnswers.TryDequeue(out var request) && !_queuedRequests.TryDequeue(out request))
                 continue;
 
-            Interlocked.Decrement(ref _queuedCount);
             WarnIfDelayed(request);
             ProcessRequest(request);
         }
@@ -232,25 +296,12 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         if (_disposed)
             return;
 
-        if (Interlocked.Increment(ref _queuedCount) > RequestQueueCapacity)
-        {
-            Interlocked.Decrement(ref _queuedCount);
+        var queued = isAnswer
+            ? _queuedAnswers.TryEnqueue(request, AnswerQueueCapacity, Log)
+            : _queuedRequests.TryEnqueue(request, RequestQueueCapacity, Log);
 
-            // Log only the first drop; the count follows once the queue accepts messages again
-            if (Interlocked.Increment(ref _droppedRequests) == 1)
-                Log.Warn($"Request queue is full ({RequestQueueCapacity}). Dropping received requests and notifications until the handlers catch up");
-            return;
-        }
-
-        (isAnswer ? _queuedAnswers : _queuedRequests).Enqueue(request);
-        _queuedSignal.Release();
-
-        if (Volatile.Read(ref _droppedRequests) > 0)
-        {
-            var dropped = Interlocked.Exchange(ref _droppedRequests, 0);
-            if (dropped > 0)
-                Log.Warn($"Request queue accepts messages again. Dropped {dropped} received requests and notifications");
-        }
+        if (queued)
+            _queuedSignal.Release();
     }
 
     private void WarnIfDelayed(in ReceivedRequest request)
@@ -261,7 +312,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             return;
 
         _lastQueueDelayWarning = now;
-        Log.Warn($"Received requests and notifications wait {waited} ms for their handlers ({Volatile.Read(ref _queuedCount)} more queued)");
+        Log.Warn($"Received requests and notifications wait {waited} ms for their handlers ({_queuedAnswers.Count + _queuedRequests.Count} more queued)");
     }
 
     private void ProcessRequest(in ReceivedRequest request)

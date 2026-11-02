@@ -31,6 +31,12 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     /// </summary>
     public int SocketReceiveBufferSize { get; set; } = 1024 * 1024;
 
+    /// <summary>
+    /// While receiving keeps failing, the 1st, 2nd, 4th, 8th, ... failure in a row is logged, and at least one
+    /// failure in this interval, so a long outage still shows in the log.
+    /// </summary>
+    public TimeSpan ReceiveErrorLogInterval { get; set; } = TimeSpan.FromMinutes(5);
+
     // Give 0.0.0.0:xxxx if the socket is open with System.Net.IPAddress.Any
     // Today only used by _GetBroadcastAddress method & the bvlc layer class in BBMD mode
     // Some more complex solutions could avoid this, that's why this property is virtual
@@ -232,6 +238,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     private async Task ReceiveLoop(UdpClient connection, CancellationToken cancellationToken)
     {
         var failedReceives = 0;
+        long lastFailureLoggedAt = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -250,9 +257,15 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
             {
                 failedReceives++;
 
-                // Log the 1st, 2nd, 4th, 8th, ... failure in a row, so a persistent error doesn't flood the log
-                if ((failedReceives & (failedReceives - 1)) == 0)
+                // Log the 1st, 2nd, 4th, 8th, ... failure in a row, so a persistent error doesn't flood the log, and
+                // at least one per ReceiveErrorLogInterval, so the gaps don't keep doubling during a long outage
+                var now = Environment.TickCount64;
+                if ((failedReceives & (failedReceives - 1)) == 0
+                    || now - lastFailureLoggedAt >= (long)ReceiveErrorLogInterval.TotalMilliseconds)
+                {
+                    lastFailureLoggedAt = now;
                     LogSafely(log => log.Error($"Failed to receive data ({failedReceives} in a row)", e));
+                }
 
                 // Keep receiving, but back off while the error persists: 100 ms, doubling up to 5 s
                 var delay = Math.Min(MinReceiveErrorDelayMs << Math.Min(failedReceives - 1, 6), MaxReceiveErrorDelayMs);
