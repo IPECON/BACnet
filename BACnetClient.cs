@@ -95,14 +95,8 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     private readonly LastSegmentAck _lastSegmentAck = new();
 
-    /// <summary>
-    /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
-    /// TODO: invoke-id should be PER (remote) DEVICE!
-    /// Concurrent, because segments of replies arrive on the receive thread and segments of requests on the
-    /// dispatcher thread.
-    /// </summary>
-    private readonly ConcurrentDictionary<byte, object> _locksPerInvokeId = new();
     private readonly SegmentationHelper _segmentationHelper = new();
+    private int _segmentReassemblyTimeout = DefaultSegmentReassemblyTimeout;
     private readonly BacnetMessageFactory _messageFactory;
 
     public const int DefaultUdpPort = 0xBAC0;
@@ -110,6 +104,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public const int DefaultRetries = 3;
     public const int DefaultRequestQueueCapacity = 1000;
     public const int DefaultAnswerQueueCapacity = 1000;
+    public const int DefaultSegmentReassemblyTimeout = 60000;
 
     public IBacnetTransport Transport { get; }
     public BacnetMaxAdpu MaxApduLength => Transport.MaxApduLength;
@@ -150,6 +145,19 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         return value > 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "The capacity must be greater than 0.");
+    }
+
+    /// <summary>
+    /// Time in ms after which an incomplete segmented message that hasn't received a segment is dropped. It must be
+    /// longer than the sender waits for our SegmentAck, including its retries (4 x APDU_Segment_Timeout).
+    /// Expired messages are dropped, and logged, when a segment of any message arrives.
+    /// </summary>
+    public int SegmentReassemblyTimeout
+    {
+        get => _segmentReassemblyTimeout;
+        set => _segmentReassemblyTimeout = value > 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The timeout must be greater than 0.");
     }
 
     public ILog Log { get; set; } = LogManager.GetLogger<BacnetClient>();
@@ -847,22 +855,30 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     private void ProcessSegment(BacnetAddress address, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, bool server, byte sequenceNumber, byte proposedWindowNumber, byte[] buffer, int offset, int length)
     {
-        var lockObj = _locksPerInvokeId.GetOrAdd(invokeId, _ => new object());
+        foreach (var expired in _segmentationHelper.RemoveExpired(SegmentReassemblyTimeout))
+            Log.Warn($"Dropped segmented {(expired.Key.Server ? "request" : "reply")} of invoke-id #{expired.Key.InvokeId} from {expired.Sender}: no segment for {SegmentReassemblyTimeout} ms");
 
-        lock (lockObj)
+        var segmentationInfo = _segmentationHelper.GetSegmentationInfo(address, invokeId, server, sequenceNumber);
+        if (segmentationInfo == null)
         {
-            ProcessSegmentLocked(address, type, service, invokeId, maxSegments, maxAdpu, server, sequenceNumber,
-                proposedWindowNumber, buffer, offset, length);
+            Log.Debug($"Ignoring segment #{sequenceNumber} of invoke-id #{invokeId} from {address}: no message with segment 0 is being received");
+            return;
+        }
+
+        // One segment of a message at a time. Other messages have their own lock, so their segments don't wait,
+        // including the segments of a reply that a handler of the reassembled request waits for.
+        lock (segmentationInfo)
+        {
+            ProcessSegmentLocked(segmentationInfo, address, type, service, invokeId, maxSegments, maxAdpu, server,
+                sequenceNumber, proposedWindowNumber, buffer, offset, length);
         }
     }
 
-    private void ProcessSegmentLocked(BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service,
-        byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, bool server, byte sequenceNumber,
-        byte proposedWindowNumber, byte[] buffer, int offset, int length)
+    private void ProcessSegmentLocked(SegmentationInfo segmentationInfo, BacnetAddress adr, BacnetPduTypes type,
+        BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu,
+        bool server, byte sequenceNumber, byte proposedWindowNumber, byte[] buffer, int offset, int length)
     {
-        Log.Trace($@"Processing Segment #{sequenceNumber} of invoke-id #{invokeId}");
-
-        var segmentationInfo = _segmentationHelper.GetSegmentationInfo(invokeId, sequenceNumber == 0);
+        Log.Trace($@"Processing Segment #{sequenceNumber} of invoke-id #{invokeId} from {adr}");
 
         var moreFollows = (type & BacnetPduTypes.MORE_FOLLOWS) == BacnetPduTypes.MORE_FOLLOWS;
 
@@ -875,7 +891,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         //default segment assembly. We run this seperately from the above handler, to make sure that it comes after!
         bool assembled = false;
         if (DefaultSegmentationHandling)
-            assembled = PerformDefaultSegmentHandling(adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
+            assembled = PerformDefaultSegmentHandling(segmentationInfo, adr, type, service, invokeId, maxSegments, maxAdpu, sequenceNumber, buffer, offset, length);
 
         var sequenceNumberToAck = segmentationInfo.GetSequenceNumberToAcknowledge(sequenceNumber, proposedWindowNumber);
         
@@ -900,17 +916,15 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
         if (assembled)
         {
             Log.Debug($"Message '{invokeId}' reassembled.");
-            _segmentationHelper.Clear(invokeId);
+            _segmentationHelper.Remove(segmentationInfo);
         }
     }
 
     /// <summary>
     /// This is a simple handling that stores all segments in memory and assembles them when done
     /// </summary>
-    private bool PerformDefaultSegmentHandling(BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
+    private bool PerformDefaultSegmentHandling(SegmentationInfo segmentationInfo, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte sequenceNumber, byte[] buffer, int offset, int length)
     {
-        var segmentationInfo = _segmentationHelper.GetSegmentationInfo(invokeId, false);
-        
         if (segmentationInfo.HasSegment(sequenceNumber))
         {
             Log.Debug($"Received segment with sequence number {sequenceNumber} which has already been received for invoke id {invokeId}. Ignoring.");

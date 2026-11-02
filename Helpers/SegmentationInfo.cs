@@ -7,6 +7,11 @@
         public byte? ExpectedSegments { get; set; }
         public byte? LastAckedSequenceNumber { get; set; }
 
+        // Maintained by SegmentationHelper, under its lock
+        internal SegmentationKey Key { get; init; }
+        internal BacnetAddress Sender { get; init; }
+        internal long LastSegmentReceivedAt { get; set; }
+
         public byte GetMaxReceivedSequenceNumber()
         {
             return _segments.Any() ? _segments.Keys.Max() : (byte)0;
