@@ -1,12 +1,15 @@
-﻿namespace System.IO.BACnet.Helpers
+﻿using System.Collections.Concurrent;
+
+namespace System.IO.BACnet.Helpers
 {
     public class SegmentationHelper
     {
-        private readonly Dictionary<byte, SegmentationInfo> _invokeIdToInfoMap = new();
+        // Concurrent, because segments of replies and of requests are processed on different threads
+        private readonly ConcurrentDictionary<byte, SegmentationInfo> _invokeIdToInfoMap = new();
 
         public void Clear(byte invokeId)
         {
-            _invokeIdToInfoMap.Remove(invokeId);
+            _invokeIdToInfoMap.TryRemove(invokeId, out _);
         }
 
         public SegmentationInfo GetSegmentationInfo(byte invokeId, bool createNew)
@@ -18,13 +21,7 @@
                 return newInfo;
             }
 
-            if (!_invokeIdToInfoMap.TryGetValue(invokeId, out var info))
-            {
-                info = new SegmentationInfo();
-                _invokeIdToInfoMap[invokeId] = info;
-            }
-
-            return info;
+            return _invokeIdToInfoMap.GetOrAdd(invokeId, _ => new SegmentationInfo());
         }
     }
 }

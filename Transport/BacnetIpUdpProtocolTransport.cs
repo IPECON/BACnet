@@ -15,7 +15,8 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     private bool _disposing;
     private CancellationTokenSource _receiveCancellation;
 
-    private static readonly TimeSpan ReceiveErrorDelay = TimeSpan.FromMilliseconds(100);
+    private const int MinReceiveErrorDelayMs = 100;
+    private const int MaxReceiveErrorDelayMs = 5000;
 
     public delegate void BvlcResultReceiveHandler(IPEndPoint sender, BacnetBvlcResults result);
     public event BvlcResultReceiveHandler OnBvlcResultReceived; 
@@ -162,6 +163,9 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         {
             if (client.Client.ReceiveBufferSize < SocketReceiveBufferSize)
                 client.Client.ReceiveBufferSize = SocketReceiveBufferSize;
+
+            // The OS may cap the size (Linux at net.core.rmem_max), so log what we got
+            Log.Info($"Socket receive buffer is {client.Client.ReceiveBufferSize} bytes (requested at least {SocketReceiveBufferSize})");
         }
         catch (SocketException e)
         {
@@ -195,6 +199,10 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
 
     public override void Start()
     {
+        // Already started: a second set of receive loops would process the same sockets concurrently
+        if (_receiveCancellation != null)
+            return;
+
         _disposing = false;
 
         Open();
@@ -209,6 +217,7 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
         if (connection == null)
             return;
 
+        // ReceiveLoop handles all its exceptions, so the task never faults
         var cancellationToken = _receiveCancellation.Token;
         _ = Task.Run(() => ReceiveLoop(connection, cancellationToken));
     }
@@ -222,6 +231,8 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
     /// </summary>
     private async Task ReceiveLoop(UdpClient connection, CancellationToken cancellationToken)
     {
+        var failedReceives = 0;
+
         while (!cancellationToken.IsCancellationRequested)
         {
             UdpReceiveResult received;
@@ -232,17 +243,22 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
             }
             catch (Exception e) when (e is ObjectDisposedException || cancellationToken.IsCancellationRequested || _disposing)
             {
-                Log.Debug("Connection has been disposed");
+                LogSafely(log => log.Debug("Connection has been disposed"));
                 return;
             }
             catch (Exception e)
             {
-                Log.Error("Failed to receive data", e);
+                failedReceives++;
 
-                // Keep receiving, but don't spin if the error persists
+                // Log the 1st, 2nd, 4th, 8th, ... failure in a row, so a persistent error doesn't flood the log
+                if ((failedReceives & (failedReceives - 1)) == 0)
+                    LogSafely(log => log.Error($"Failed to receive data ({failedReceives} in a row)", e));
+
+                // Keep receiving, but back off while the error persists: 100 ms, doubling up to 5 s
+                var delay = Math.Min(MinReceiveErrorDelayMs << Math.Min(failedReceives - 1, 6), MaxReceiveErrorDelayMs);
                 try
                 {
-                    await Task.Delay(ReceiveErrorDelay, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -252,7 +268,33 @@ public class BacnetIpUdpProtocolTransport : BacnetTransportBase
                 continue;
             }
 
-            OnReceiveData(received.Buffer, received.RemoteEndPoint);
+            if (failedReceives > 0)
+            {
+                LogSafely(log => log.Warn($"Receiving data again after {failedReceives} failed receives"));
+                failedReceives = 0;
+            }
+
+            try
+            {
+                OnReceiveData(received.Buffer, received.RemoteEndPoint);
+            }
+            catch
+            {
+                // OnReceiveData logs its own errors, so only a failing logger gets here. That must not end the loop,
+                // or nothing would be received on this socket any more.
+            }
+        }
+    }
+
+    private void LogSafely(Action<ILog> write)
+    {
+        try
+        {
+            write(Log);
+        }
+        catch
+        {
+            // A failing logger must not end the receive loop
         }
     }
 

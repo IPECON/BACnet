@@ -1,7 +1,7 @@
+using System.Collections.Concurrent;
 using System.IO.BACnet.Factory;
 using System.IO.BACnet.Helpers;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using static System.IO.BACnet.BacnetIpUdpProtocolTransport;
 
 namespace System.IO.BACnet;
@@ -16,39 +16,53 @@ public delegate void MessageRecievedHandler(IBacnetTransport sender, byte[] buff
 /// transport's receive thread, so a pending request completes even while request handlers are busy.
 /// Received requests, notifications and network layer messages are queued, and their handlers
 /// (<see cref="OnIam"/>, <see cref="OnCOVNotification"/>, <see cref="OnReadPropertyRequest"/>, ...) run one at a
-/// time on a dedicated dispatcher thread, in arrival order. These handlers may send requests and wait for the
-/// replies.
+/// time on a dedicated dispatcher thread, in arrival order. I-Am and I-Have answer our Who-Is and Who-Has, so they
+/// are handled before the other queued messages. These handlers may send requests and wait for the replies.
 /// </remarks>
 public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 {
     private int mRetries;
     private readonly InvokeIdGenerator mInvokeId = new();
 
-    private Channel<ReceivedRequest> _receivedRequests;
+    // Received messages waiting for the dispatcher thread, answers first. _queuedSignal is released once per
+    // queued message, _queuedCount counts them for the capacity check.
+    private readonly ConcurrentQueue<ReceivedRequest> _queuedAnswers = new();
+    private readonly ConcurrentQueue<ReceivedRequest> _queuedRequests = new();
+    private readonly SemaphoreSlim _queuedSignal = new(0);
+    private int _queuedCount;
     private int _droppedRequests;
+    private long _lastQueueDelayWarning;
+    private bool _dispatcherStarted;
     private volatile bool _disposed;
+    private int _requestQueueCapacity = DefaultRequestQueueCapacity;
+
+    private const int QueueDelayWarningMs = 1000;
+    private const int QueueDelayWarningIntervalMs = 10000;
 
     /// <summary>
     /// A received service request, notification or network layer message, waiting for the dispatcher thread.
     /// The buffer is a copy, because some transports reuse their receive buffer.
     /// </summary>
     private readonly record struct ReceivedRequest(BacnetAddress Address, byte[] Buffer, BacnetPduTypes ApduType,
-        bool IsNetworkMessage, BacnetNpduControls NpduFunction, BacnetNetworkMessageTypes NetworkMessageType);
+        bool IsNetworkMessage, BacnetNpduControls NpduFunction, BacnetNetworkMessageTypes NetworkMessageType,
+        long QueuedAt);
 
     private readonly LastSegmentAck _lastSegmentAck = new();
 
     /// <summary>
     /// Dictionary of List of Tuples with sequence-number and byte[] per invoke-id
     /// TODO: invoke-id should be PER (remote) DEVICE!
+    /// Concurrent, because segments of replies arrive on the receive thread and segments of requests on the
+    /// dispatcher thread.
     /// </summary>
-    private readonly Dictionary<byte, object> _locksPerInvokeId = new();
+    private readonly ConcurrentDictionary<byte, object> _locksPerInvokeId = new();
     private readonly SegmentationHelper _segmentationHelper = new();
     private readonly BacnetMessageFactory _messageFactory;
 
     public const int DefaultUdpPort = 0xBAC0;
     public const int DefaultTimeout = 1000;
     public const int DefaultRetries = 3;
-    public const int DefaultRequestQueueCapacity = 10000;
+    public const int DefaultRequestQueueCapacity = 1000;
 
     public IBacnetTransport Transport { get; }
     public BacnetMaxAdpu MaxApduLength => Transport.MaxApduLength;
@@ -63,9 +77,15 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     /// <summary>
     /// Maximum number of received requests and notifications waiting for the dispatcher thread. When the queue is
     /// full, further ones are dropped (and logged) until the handlers catch up; replies are never queued.
-    /// Must be set before <see cref="Start"/>.
+    /// The default keeps the wait short: a queued confirmed request is useless once its sender has timed out.
     /// </summary>
-    public int RequestQueueCapacity { get; set; } = DefaultRequestQueueCapacity;
+    public int RequestQueueCapacity
+    {
+        get => _requestQueueCapacity;
+        set => _requestQueueCapacity = value > 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The capacity must be greater than 0.");
+    }
 
     public ILog Log { get; set; } = LogManager.GetLogger<BacnetClient>();
     public event BvlcResultReceiveHandler OnBvlcResultReceived;
@@ -164,6 +184,9 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     public void Start()
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(BacnetClient));
+
         StartRequestDispatcher();
         Transport.Start();
         Transport.MessageReceived += OnRecieve;
@@ -172,60 +195,73 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     private void StartRequestDispatcher()
     {
-        if (_receivedRequests != null)
+        if (_dispatcherStarted)
             return;
 
-        // FullMode.Wait only makes TryWrite fail when the queue is full; nothing waits, see QueueRequest
-        _receivedRequests = Channel.CreateBounded<ReceivedRequest>(new BoundedChannelOptions(RequestQueueCapacity)
-        {
-            SingleReader = true,
-            FullMode = BoundedChannelFullMode.Wait
-        });
-
+        _dispatcherStarted = true;
         new Thread(DispatchRequests)
         {
             IsBackground = true,
             Name = $"BACnet requests {Transport}"
-        }.Start(_receivedRequests.Reader);
+        }.Start();
     }
 
-    private void DispatchRequests(object state)
+    private void DispatchRequests()
     {
-        var reader = (ChannelReader<ReceivedRequest>)state;
-
-        // A dedicated thread, because handlers block: they call into the application and may wait for replies
-        while (reader.WaitToReadAsync().AsTask().GetAwaiter().GetResult())
+        // A dedicated thread that waits on its own, because handlers block: they call into the application and may
+        // wait for replies
+        while (true)
         {
-            while (reader.TryRead(out var request))
-            {
-                if (_disposed)
-                    return;
+            _queuedSignal.Wait();
 
-                ProcessRequest(request);
-            }
+            if (_disposed)
+                return;
+
+            // Every signal follows an enqueue, so one of the queues has a message
+            if (!_queuedAnswers.TryDequeue(out var request) && !_queuedRequests.TryDequeue(out request))
+                continue;
+
+            Interlocked.Decrement(ref _queuedCount);
+            WarnIfDelayed(request);
+            ProcessRequest(request);
         }
     }
 
-    private void QueueRequest(in ReceivedRequest request)
+    private void QueueRequest(in ReceivedRequest request, bool isAnswer)
     {
-        if (_receivedRequests.Writer.TryWrite(request))
-        {
-            if (Volatile.Read(ref _droppedRequests) > 0)
-            {
-                var dropped = Interlocked.Exchange(ref _droppedRequests, 0);
-                if (dropped > 0)
-                    Log.Warn($"Request queue accepts messages again. Dropped {dropped} received requests and notifications");
-            }
-
-            return;
-        }
-
         if (_disposed)
             return;
 
-        // Log only the first drop; the count follows once the queue accepts messages again
-        if (Interlocked.Increment(ref _droppedRequests) == 1)
-            Log.Warn($"Request queue is full ({RequestQueueCapacity}). Dropping received requests and notifications until the handlers catch up");
+        if (Interlocked.Increment(ref _queuedCount) > RequestQueueCapacity)
+        {
+            Interlocked.Decrement(ref _queuedCount);
+
+            // Log only the first drop; the count follows once the queue accepts messages again
+            if (Interlocked.Increment(ref _droppedRequests) == 1)
+                Log.Warn($"Request queue is full ({RequestQueueCapacity}). Dropping received requests and notifications until the handlers catch up");
+            return;
+        }
+
+        (isAnswer ? _queuedAnswers : _queuedRequests).Enqueue(request);
+        _queuedSignal.Release();
+
+        if (Volatile.Read(ref _droppedRequests) > 0)
+        {
+            var dropped = Interlocked.Exchange(ref _droppedRequests, 0);
+            if (dropped > 0)
+                Log.Warn($"Request queue accepts messages again. Dropped {dropped} received requests and notifications");
+        }
+    }
+
+    private void WarnIfDelayed(in ReceivedRequest request)
+    {
+        var now = Environment.TickCount64;
+        var waited = now - request.QueuedAt;
+        if (waited < QueueDelayWarningMs || now - _lastQueueDelayWarning < QueueDelayWarningIntervalMs)
+            return;
+
+        _lastQueueDelayWarning = now;
+        Log.Warn($"Received requests and notifications wait {waited} ms for their handlers ({Volatile.Read(ref _queuedCount)} more queued)");
     }
 
     private void ProcessRequest(in ReceivedRequest request)
@@ -256,6 +292,19 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             or BacnetPduTypes.PDU_TYPE_ERROR
             or BacnetPduTypes.PDU_TYPE_REJECT
             or BacnetPduTypes.PDU_TYPE_ABORT;
+    }
+
+    /// <summary>
+    /// I-Am and I-Have, which answer our Who-Is and Who-Has
+    /// </summary>
+    private static bool IsAnswer(BacnetPduTypes apduType, byte[] buffer, int offset, int length)
+    {
+        if ((apduType & BacnetPduTypes.PDU_TYPE_MASK) != BacnetPduTypes.PDU_TYPE_UNCONFIRMED_SERVICE_REQUEST || length < 2)
+            return false;
+
+        APDU.DecodeUnconfirmedServiceRequest(buffer, offset, out _, out var service);
+        return service is BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_AM
+            or BacnetUnconfirmedServices.SERVICE_UNCONFIRMED_I_HAVE;
     }
 
     public delegate void ConfirmedServiceRequestHandler(BacnetClient sender, BacnetAddress adr, BacnetPduTypes type, BacnetConfirmedServices service, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, byte invokeId, byte[] buffer, int offset, int length);
@@ -747,11 +796,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
 
     private void ProcessSegment(BacnetAddress address, BacnetPduTypes type, BacnetConfirmedServices service, byte invokeId, BacnetMaxSegments maxSegments, BacnetMaxAdpu maxAdpu, bool server, byte sequenceNumber, byte proposedWindowNumber, byte[] buffer, int offset, int length)
     {
-        if (!_locksPerInvokeId.TryGetValue(invokeId, out var lockObj))
-        {
-            lockObj = new object();
-            _locksPerInvokeId[invokeId] = lockObj;
-        }
+        var lockObj = _locksPerInvokeId.GetOrAdd(invokeId, _ => new object());
 
         lock (lockObj)
         {
@@ -1105,7 +1150,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
             if (npduFunction.HasFlag(BacnetNpduControls.NetworkLayerMessage))
             {
                 QueueRequest(new ReceivedRequest(remoteAddress, buffer.AsSpan(offset, msgLength).ToArray(), default,
-                    true, npduFunction, npduMessageType));
+                    true, npduFunction, npduMessageType, Environment.TickCount64), false);
                 return;
             }
 
@@ -1118,7 +1163,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
                 ProcessApdu(remoteAddress, apduType, buffer, offset, msgLength);
             else
                 QueueRequest(new ReceivedRequest(remoteAddress, buffer.AsSpan(offset, msgLength).ToArray(), apduType,
-                    false, default, default));
+                    false, default, default, Environment.TickCount64), IsAnswer(apduType, buffer, offset, msgLength));
         }
         catch (Exception ex)
         {
@@ -2978,7 +3023,7 @@ public class BacnetClient : IBacnetMessageFactoryParameters, IDisposable
     public void Dispose()
     {
         _disposed = true;
-        _receivedRequests?.Writer.TryComplete();
+        _queuedSignal.Release(); // lets the dispatcher thread see _disposed and exit
         Transport.Dispose();
     }
 }
